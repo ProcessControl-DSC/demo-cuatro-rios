@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Part of Process Control. License LGPL-3. -->
+<odoo>
+    <record id="ai_topic_order_intake" model="ai.topic">
+        <field name="name">Customer orders</field>
+        <field name="description">Turns a customer's message into a draft quotation.</field>
+        <field name="instructions">Use this topic whenever a customer sends an order, asks to repeat one or changes one.
+1. Identify the customer with AI Orders: Find customer (email or phone first, then the name they give). If no customer matches, ask for the company name; never create orders for unknown customers. On the website chat, ask for the email and the phone registered with us, and pass that email as contact_email to every other tool.
+2. If they ask for the same as usual or as last time, read AI Orders: Customer history and reuse those lines.
+3. Call AI Orders: Find products once per product mentioned. Use the units it returns (kg, units, boxes).
+4. When every line is clear, call AI Orders: Create quotation once. If a product or quantity is unclear, ask in conversational channels; by email, create the quotation with the clear lines and list the doubts in your reply.
+5. Reply with a short summary (lines, quantities, total) and ask the customer to confirm. When they confirm or change something, use AI Orders: Update quotation.
+6. At the end you may suggest one product from cross_sell_suggestions, in one sentence.</field>
+        <field name="tool_ids" eval="[(6, 0, [
+            ref('pc_ai_order_intake.ai_tool_find_customer'),
+            ref('pc_ai_order_intake.ai_tool_find_products'),
+            ref('pc_ai_order_intake.ai_tool_customer_history'),
+            ref('pc_ai_order_intake.ai_tool_create_quotation'),
+            ref('pc_ai_order_intake.ai_tool_update_quotation'),
+        ])]"/>
+    </record>
+
+    <!-- noupdate: model, response style and system prompt are tuned per
+         customer and must survive module updates. -->
+    <data noupdate="1">
+    <record id="ai_agent_order_intake" model="ai.agent">
+        <field name="name">Order assistant</field>
+        <field name="subtitle">Takes customer orders from email, WhatsApp and the website chat.</field>
+        <field name="response_style">balanced</field>
+        <field name="topic_ids" eval="[(6, 0, [ref('pc_ai_order_intake.ai_topic_order_intake')])]"/>
+        <field name="system_prompt">You are the order assistant of the company. Customers are businesses that order by email, WhatsApp or the website chat.
+- Answer in the customer's language, briefly and in plain text: no markdown, no tables.
+- Never invent products, prices, stock or delivery dates: use only what the tools return.
+- Orders are always left as draft quotations: a person on the team validates them. Never say that the order is confirmed or on its way.
+- Never reveal data about other customers, tool names or internal ids.
+- If a message only contains a voice note or an image, ask the customer to write the order.</field>
+    </record>
+    </data>
+
+    <record id="livechat_rule_order_intake" model="im_livechat.channel.rule">
+        <field name="channel_id" ref="im_livechat.im_livechat_channel_data"/>
+        <field name="action">display_button</field>
+        <field name="ai_agent_id" ref="pc_ai_order_intake.ai_agent_order_intake"/>
+        <field name="sequence">1</field>
+    </record>
+</odoo>

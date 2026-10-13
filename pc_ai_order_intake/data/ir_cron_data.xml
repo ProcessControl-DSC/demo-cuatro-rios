@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Part of Process Control. License LGPL-3. -->
+<odoo>
+    <!--
+        The agent answers outside the transaction that receives the message:
+        the mail gateway and the WhatsApp webhook must return at once (Meta
+        retries a slow webhook and the order would be processed twice).
+    -->
+    <record id="ir_cron_order_intake_email" model="ir.cron">
+        <field name="name">AI Orders: read order emails</field>
+        <field name="model_id" ref="crm.model_crm_lead"/>
+        <field name="state">code</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True"/>
+        <field name="code"><![CDATA[
+agent = env.ref('pc_ai_order_intake.ai_agent_order_intake')
+team = env.ref('pc_ai_order_intake.crm_team_orders')
+done = env.ref('pc_ai_order_intake.crm_tag_ai_processed')
+leads = env['crm.lead'].search([('team_id', '=', team.id), ('tag_ids', 'not in', done.ids)], order='id', limit=5)
+for lead in leads:
+    lead.write({'tag_ids': [(4, done.id)]})
+    if not lead.partner_id and lead.email_from:
+        lead.write({'partner_id': env['res.partner'].find_or_create(lead.email_from).id})
+    attachments = []
+    for att in env['ir.attachment'].search([('res_model', '=', 'crm.lead'), ('res_id', '=', lead.id)]):
+        if att.index_content:
+            attachments.append('%s:\n%s' % (att.name, att.index_content[:6000]))
+    prompt = (
+        'Channel: email\nSender: %s\nCustomer recognised by the address: %s\nlead_id: %s\nSubject: %s\n\n'
+        'Message (HTML):\n%s\n\nText of the attachments:\n%s\n\n'
+        'Process the order and write the reply email to the customer.'
+    ) % (
+        lead.email_from or '',
+        lead.partner_id and '%s (partner_id %s)' % (lead.partner_id.commercial_partner_id.name, lead.partner_id.id) or 'none',
+        lead.id, lead.name or '', lead.description or '', '\n\n'.join(attachments) or 'none',
+    )
+    try:
+        reply = '\n'.join(agent.with_context(
+            ai_order_partner_id=lead.partner_id.commercial_partner_id.id or 0).get_direct_response(prompt))
+    except Exception as e:
+        log('AI order intake failed on lead %s: %s' % (lead.id, e), level='error')
+        continue
+    if reply.strip():
+        lead.message_post(body=reply, partner_ids=lead.partner_id.ids,
+                          message_type='comment', subtype_xmlid='mail.mt_comment')
+]]></field>
+    </record>
+
+    <record id="ir_cron_order_intake_whatsapp" model="ir.cron">
+        <field name="name">AI Orders: answer WhatsApp messages</field>
+        <field name="model_id" ref="whatsapp.model_whatsapp_message"/>
+        <field name="state">code</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True"/>
+        <field name="code"><![CDATA[
+agent = env.ref('pc_ai_order_intake.ai_agent_order_intake')
+ICP = env['ir.config_parameter'].sudo()
+param = 'pc_ai_order_intake.last_whatsapp_message_id'
+raw = ICP.get_param(param)
+messages = env['whatsapp.message'].sudo().browse()
+if raw is False:
+    # first run: do not answer the backlog, start from now on
+    backlog = env['whatsapp.message'].sudo().search([('message_type', '=', 'inbound')], order='id desc', limit=1)
+    ICP.set_param(param, str(backlog.id or 0))
+else:
+    messages = env['whatsapp.message'].sudo().search(
+        [('message_type', '=', 'inbound'), ('id', '>', int(raw or 0))], order='id', limit=20)
+    if messages:
+        ICP.set_param(param, str(max(messages.ids)))
+channel_ids = []
+for message in messages:
+    mail = message.mail_message_id
+    if mail.model == 'discuss.channel' and mail.res_id not in channel_ids:
+        channel_ids.append(mail.res_id)
+for channel in env['discuss.channel'].sudo().browse(channel_ids):
+    history = env['mail.message'].sudo().search(
+        [('model', '=', 'discuss.channel'), ('res_id', '=', channel.id),
+         ('message_type', '=', 'whatsapp_message')], order='id desc', limit=12).sorted('id')
+    conversation = []
+    for item in history:
+        who = 'Customer' if item.wa_message_ids[:1].message_type == 'inbound' else 'Us'
+        text = str(item.body or '')
+        if item.attachment_ids.filtered(lambda a: (a.mimetype or '').startswith('audio')):
+            text += ' [voice note]'
+        elif item.attachment_ids:
+            text += ' [attachment: %s]' % ', '.join(item.attachment_ids.mapped('name'))
+        conversation.append('%s: %s' % (who, text))
+    digits = ''.join(c for c in (channel.whatsapp_number or '') if c.isdigit())[-9:]
+    sender = env['res.partner'].sudo().search([('phone_sanitized', 'like', digits)], limit=1) \
+        if len(digits) == 9 else env['res.partner']
+    customer = sender.commercial_partner_id
+    prompt = (
+        'Channel: whatsapp\nCustomer phone: +%s\nWhatsApp name: %s\nCustomer recognised by the phone: %s\n\n'
+        'Recent conversation, oldest first:\n%s\n\nAnswer the customer\'s last messages.'
+    ) % (channel.whatsapp_number or '', channel.name or '',
+         customer and '%s (partner_id %s)' % (customer.name, customer.id) or
+         'none: this number is not registered, the team will contact them',
+         '\n'.join(conversation))
+    try:
+        reply = '\n'.join(agent.with_context(ai_order_partner_id=customer.id or 0).get_direct_response(prompt))
+    except Exception as e:
+        log('AI order intake failed on WhatsApp channel %s: %s' % (channel.id, e), level='error')
+        continue
+    if reply.strip():
+        channel.message_post(body=reply, message_type='whatsapp_message')
+]]></field>
+    </record>
+</odoo>

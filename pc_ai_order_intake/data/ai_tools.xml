@@ -1,0 +1,369 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Part of Process Control. License LGPL-3. -->
+<odoo>
+    <!--
+        AI tools of the order intake agent. Rules verified on 19.0:
+        - model_id is ai.agent (the tool runs in the agent context); business
+          models are reached through env[...].
+        - lookup tools are intermediate (no end message); create and update
+          close the turn, so they allow the end message and declare
+          __end_message in their schema.
+        - the chat visitor of the website is the public user: tools work in
+          sudo, but only on what the arguments point at, and the quotation is
+          always left in draft for a person to validate.
+    -->
+
+    <record id="ai_tool_find_customer" model="ir.actions.server">
+        <field name="name">AI Orders: Find customer</field>
+        <field name="model_id" ref="ai.model_ai_agent"/>
+        <field name="state">code</field>
+        <field name="use_in_ai" eval="True"/>
+        <field name="ai_tool_allow_end_message" eval="False"/>
+        <field name="ai_tool_description">Finds the customer who is ordering, by email, phone number or company name (in that order of reliability). On the website chat the visitor must give both the email and the phone registered with us. Returns the matching customers with their id, city, delivery route and pricelist. If several customers match, ask which one before creating anything.</field>
+        <field name="ai_tool_schema">{
+    "type": "object",
+    "properties": {
+        "email": {"type": "string", "description": "Sender email address, when known"},
+        "phone": {"type": "string", "description": "Sender phone number (WhatsApp), any format"},
+        "name": {"type": "string", "description": "Company or business name given by the customer"}
+    },
+    "required": []
+}</field>
+        <field name="code"><![CDATA[
+Partner = env['res.partner'].sudo()
+internal = env.user.has_group('base.group_user')
+digits = ''.join(c for c in (phone or '') if c.isdigit())[-9:]
+found = Partner.browse()
+if not internal:
+    # website visitor: both the email and the phone must belong to the customer
+    if email and len(digits) == 9:
+        found = Partner.search([('email', '=ilike', email.strip())], limit=5).filtered(
+            lambda p: (p.phone_sanitized or '').endswith(digits)
+            or (p.commercial_partner_id.phone_sanitized or '').endswith(digits))
+else:
+    if email:
+        found = Partner.search([('email', '=ilike', email.strip())], limit=5)
+    if not found and len(digits) == 9:
+        found = Partner.search([('phone_sanitized', 'like', digits)], limit=5)
+    if not found and name:
+        found = Partner.search([('name', 'ilike', name.strip()), ('customer_rank', '>', 0)], limit=5)
+locked = env.context.get('ai_order_partner_id')
+if locked is not None:
+    # email and WhatsApp: the sender is the only customer this conversation may touch
+    found = Partner.browse(int(locked or 0)).exists()
+customers = found.commercial_partner_id
+if internal:
+    data = [{
+        'partner_id': c.id,
+        'name': c.name,
+        'city': c.city or '',
+        'route': ', '.join(c.category_id.mapped('name')),
+        'pricelist': c.property_product_pricelist.name or '',
+    } for c in customers]
+else:
+    data = [{'partner_id': c.id, 'name': c.name} for c in customers]
+ai['result'] = {
+    'customers': data,
+    'note': '' if customers else (
+        'No customer matches these details.' if internal
+        else 'Ask for the email and the phone number registered with us; both must match.'),
+}
+]]></field>
+    </record>
+
+    <record id="ai_tool_find_products" model="ir.actions.server">
+        <field name="name">AI Orders: Find products</field>
+        <field name="model_id" ref="ai.model_ai_agent"/>
+        <field name="state">code</field>
+        <field name="use_in_ai" eval="True"/>
+        <field name="ai_tool_allow_end_message" eval="False"/>
+        <field name="ai_tool_description">Finds sellable products from the words the customer used (name, internal reference or the alternative names customers use). Call it once per product mentioned. Returns candidates with id, reference, name, unit, list price and the units it can be sold in (for example boxes of several kg). If more than one candidate fits, choose only when the customer's words make it obvious; otherwise ask.</field>
+        <field name="ai_tool_schema">{
+    "type": "object",
+    "properties": {
+        "text": {"type": "string", "description": "The product as the customer wrote it, without the quantity"}
+    },
+    "required": ["text"]
+}</field>
+        <field name="code"><![CDATA[
+Product = env['product.product'].sudo()
+Uom = env['uom.uom'].sudo()
+base = [('sale_ok', '=', True)]
+text = (text or '').strip()
+found = Product.search(base + ['|', '|', ('name', 'ilike', text), ('default_code', '=', text),
+                               ('product_tmpl_id.description', 'ilike', text)], limit=8)
+words = []
+for w in text.lower().replace(',', ' ').replace('.', ' ').split():
+    if len(w) > 3:
+        words.append(w[:-1] if w.endswith('s') else w)
+if not found and words:
+    domain = list(base)
+    for w in words:
+        domain += ['|', ('name', 'ilike', w), ('product_tmpl_id.description', 'ilike', w)]
+    found = Product.search(domain, limit=8)
+if not found and words:
+    domain = list(base) + ['|'] * (2 * len(words) - 1)
+    for w in words:
+        domain += [('name', 'ilike', w), ('product_tmpl_id.description', 'ilike', w)]
+    found = Product.search(domain, limit=8)
+products = []
+for p in found:
+    units = [p.uom_id.name] + Uom.search([('relative_uom_id', '=', p.uom_id.id)]).mapped('name')
+    notes = str(p.product_tmpl_id.description or '').replace('<p>', '').replace('</p>', ' ').strip()
+    products.append({
+        'product_id': p.id,
+        'reference': p.default_code or '',
+        'name': p.name,
+        'unit': p.uom_id.name,
+        'units': units,
+        'list_price': p.lst_price,
+        'other_names': notes,
+    })
+ai['result'] = {'products': products, 'note': '' if products else 'No product found: ask the customer.'}
+]]></field>
+    </record>
+
+    <record id="ai_tool_customer_history" model="ir.actions.server">
+        <field name="name">AI Orders: Customer history</field>
+        <field name="model_id" ref="ai.model_ai_agent"/>
+        <field name="state">code</field>
+        <field name="use_in_ai" eval="True"/>
+        <field name="ai_tool_allow_end_message" eval="False"/>
+        <field name="ai_tool_description">Returns the last confirmed order of a customer with its lines (to repeat it when the customer asks for "the same as last time"), the products they usually order, and up to three products that similar customers buy and this one does not (to suggest one, briefly, at the end).</field>
+        <field name="ai_tool_schema">{
+    "type": "object",
+    "properties": {
+        "partner_id": {"type": "integer", "description": "Customer id returned by AI Orders: Find customer"},
+        "contact_email": {"type": "string", "description": "Email the customer gave in this conversation; required on the website chat"}
+    },
+    "required": ["partner_id"]
+}</field>
+        <field name="code"><![CDATA[
+partner = env['res.partner'].sudo().browse(int(partner_id or 0)).exists()
+verified = env.user.has_group('base.group_user') or bool(
+    partner and contact_email and contact_email.strip().lower() in (
+        (partner.email or '').lower(), (partner.commercial_partner_id.email or '').lower()))
+locked = env.context.get('ai_order_partner_id')
+if locked is not None:
+    verified = bool(partner) and partner.commercial_partner_id == env['res.partner'].sudo().browse(
+        int(locked or 0)).commercial_partner_id
+if not partner:
+    ai['result'] = {'error': 'Unknown partner_id: find the customer first.'}
+elif not verified:
+    ai['result'] = {'error': 'Identity not verified: ask for the email registered with us.'}
+else:
+    customer = partner.commercial_partner_id
+    orders = env['sale.order'].sudo().search(
+        [('partner_id', 'child_of', customer.id), ('state', '=', 'sale')],
+        order='date_order desc', limit=8)
+    last = orders[:1]
+    usual = {}
+    for line in orders.order_line.filtered('product_id'):
+        usual[line.product_id] = usual.get(line.product_id, 0) + 1
+    counts = {}
+    peers = env['sale.order.line'].sudo().search([
+        ('order_id.state', '=', 'sale'),
+        ('order_id.pricelist_id', '=', customer.property_product_pricelist.id),
+        ('order_partner_id', '!=', customer.id),
+        ('product_id', 'not in', [p.id for p in usual]),
+    ], limit=500)
+    for line in peers:
+        counts[line.product_id] = counts.get(line.product_id, 0) + 1
+    suggestions = sorted(counts, key=lambda p: -counts[p])[:3]
+    ai['result'] = {
+        'customer': customer.name,
+        'pricelist': customer.property_product_pricelist.name or '',
+        'last_order': last and {
+            'name': last.name,
+            'date': str(last.date_order.date()),
+            'lines': [{
+                'product_id': l.product_id.id,
+                'product': l.product_id.display_name,
+                'quantity': l.product_uom_qty,
+                'unit': l.product_uom_id.name,
+            } for l in last.order_line if l.product_id],
+        } or None,
+        'usual_products': [{'product_id': p.id, 'product': p.display_name, 'times_ordered': n}
+                           for p, n in sorted(usual.items(), key=lambda kv: -kv[1])[:10]],
+        'cross_sell_suggestions': [{'product_id': p.id, 'product': p.display_name}
+                                   for p in suggestions],
+    }
+]]></field>
+    </record>
+
+    <record id="ai_tool_create_quotation" model="ir.actions.server">
+        <field name="name">AI Orders: Create quotation</field>
+        <field name="model_id" ref="ai.model_ai_agent"/>
+        <field name="state">code</field>
+        <field name="use_in_ai" eval="True"/>
+        <field name="ai_tool_allow_end_message" eval="True"/>
+        <field name="ai_tool_description">Creates the order as a draft quotation for the customer, to be validated by a person. product_ids, quantities and uoms are parallel lists: one position per line. Leave a uom empty to use the product unit. Returns the quotation number, the lines with prices and the totals, to summarise them to the customer.</field>
+        <field name="ai_tool_schema">{
+    "type": "object",
+    "properties": {
+        "partner_id": {"type": "integer", "description": "Customer id"},
+        "contact_email": {"type": "string", "description": "Email the customer gave in this conversation; required on the website chat"},
+        "product_ids": {"type": "array", "items": {"type": "integer"}, "description": "Product id of each line"},
+        "quantities": {"type": "array", "items": {"type": "number"}, "description": "Quantity of each line"},
+        "uoms": {"type": "array", "items": {"type": "string"}, "description": "Unit name of each line, from the units returned by AI Orders: Find products"},
+        "channel": {"type": "string", "description": "Channel the order came from: web, email or whatsapp"},
+        "customer_message": {"type": "string", "description": "The customer's original message, verbatim"},
+        "lead_id": {"type": "integer", "description": "Opportunity id when the order arrived by email"},
+        "__end_message": {"type": "string", "description": "Final message for the customer, if no further step is needed"}
+    },
+    "required": ["partner_id", "product_ids", "quantities", "channel"]
+}</field>
+        <field name="code"><![CDATA[
+partner = env['res.partner'].sudo().browse(int(partner_id or 0)).exists()
+verified = env.user.has_group('base.group_user') or bool(
+    partner and contact_email and contact_email.strip().lower() in (
+        (partner.email or '').lower(), (partner.commercial_partner_id.email or '').lower()))
+locked = env.context.get('ai_order_partner_id')
+if locked is not None:
+    verified = bool(partner) and partner.commercial_partner_id == env['res.partner'].sudo().browse(
+        int(locked or 0)).commercial_partner_id
+pids = product_ids or []
+qtys = quantities or []
+units = uoms or []
+errors = []
+if not partner:
+    errors.append('Unknown partner_id: find the customer first.')
+elif not verified:
+    errors.append('Identity not verified: ask for the email registered with us.')
+if not pids or len(pids) != len(qtys):
+    errors.append('product_ids and quantities must be non-empty lists of the same length.')
+lines = []
+if not errors:
+    Product = env['product.product'].sudo()
+    Uom = env['uom.uom'].sudo()
+    for i in range(len(pids)):
+        product = Product.browse(int(pids[i])).exists()
+        qty = float(qtys[i] or 0)
+        if not product or not product.sale_ok:
+            errors.append('Unknown product_id %s.' % pids[i])
+            continue
+        if qty <= 0:
+            errors.append('Quantity of %s must be positive.' % product.name)
+            continue
+        uom = product.uom_id
+        wanted = i < len(units) and (units[i] or '').strip()
+        if wanted:
+            candidate = Uom.search([('name', '=ilike', wanted)], limit=1)
+            if candidate and (candidate == product.uom_id or candidate.relative_uom_id == product.uom_id):
+                uom = candidate
+        lines.append((0, 0, {'product_id': product.id, 'product_uom_qty': qty, 'product_uom_id': uom.id}))
+if errors:
+    ai['result'] = {'error': ' '.join(errors)}
+else:
+    tags = env.ref('pc_ai_order_intake.crm_tag_ai_order')
+    channel_tag = env.ref('pc_ai_order_intake.crm_tag_channel_%s' % (channel or '').strip().lower(),
+                          raise_if_not_found=False)
+    if channel_tag:
+        tags |= channel_tag
+    lead = env['crm.lead'].sudo().browse(int(lead_id or 0)).exists()
+    order = env['sale.order'].sudo().create({
+        'partner_id': partner.id,
+        'origin': 'AI %s' % (channel or ''),
+        'opportunity_id': lead.id,
+        'tag_ids': [(6, 0, tags.ids)],
+        'order_line': lines,
+    })
+    if customer_message:
+        order.message_post(body=customer_message, subtype_xmlid='mail.mt_note')
+    ai['result'] = {
+        'quotation': order.name,
+        'state': 'draft, pending validation by the team',
+        'lines': [{
+            'product': l.product_id.display_name,
+            'quantity': l.product_uom_qty,
+            'unit': l.product_uom_id.name,
+            'unit_price': l.price_unit,
+            'subtotal': l.price_subtotal,
+        } for l in order.order_line],
+        'untaxed_total': order.amount_untaxed,
+        'total': order.amount_total,
+        'currency': order.currency_id.name,
+    }
+]]></field>
+    </record>
+
+    <record id="ai_tool_update_quotation" model="ir.actions.server">
+        <field name="name">AI Orders: Update quotation</field>
+        <field name="model_id" ref="ai.model_ai_agent"/>
+        <field name="state">code</field>
+        <field name="use_in_ai" eval="True"/>
+        <field name="ai_tool_allow_end_message" eval="True"/>
+        <field name="ai_tool_description">Changes a draft quotation of the same customer: sets the quantity of each given product (adds the line if missing, removes it with quantity 0) and, when the customer confirms the summary, marks it as confirmed by the customer. It never confirms the order itself: the team validates it.</field>
+        <field name="ai_tool_schema">{
+    "type": "object",
+    "properties": {
+        "quotation": {"type": "string", "description": "Quotation number returned when it was created"},
+        "partner_id": {"type": "integer", "description": "Customer id"},
+        "contact_email": {"type": "string", "description": "Email the customer gave in this conversation; required on the website chat"},
+        "product_ids": {"type": "array", "items": {"type": "integer"}, "description": "Product id of each line to change"},
+        "quantities": {"type": "array", "items": {"type": "number"}, "description": "New quantity of each product, 0 to remove it"},
+        "uoms": {"type": "array", "items": {"type": "string"}, "description": "Unit name of each line, empty for the product unit"},
+        "customer_confirmed": {"type": "boolean", "description": "True when the customer has confirmed the summary"},
+        "__end_message": {"type": "string", "description": "Final message for the customer, if no further step is needed"}
+    },
+    "required": ["quotation", "partner_id"]
+}</field>
+        <field name="code"><![CDATA[
+partner = env['res.partner'].sudo().browse(int(partner_id or 0)).exists()
+verified = env.user.has_group('base.group_user') or bool(
+    partner and contact_email and contact_email.strip().lower() in (
+        (partner.email or '').lower(), (partner.commercial_partner_id.email or '').lower()))
+locked = env.context.get('ai_order_partner_id')
+if locked is not None:
+    verified = bool(partner) and partner.commercial_partner_id == env['res.partner'].sudo().browse(
+        int(locked or 0)).commercial_partner_id
+order = env['sale.order'].sudo().search([('name', '=', (quotation or '').strip())], limit=1)
+pids = product_ids or []
+qtys = quantities or []
+units = uoms or []
+if not partner or not verified or not order or order.partner_id.commercial_partner_id != partner.commercial_partner_id:
+    ai['result'] = {'error': 'Quotation not found for this customer.'}
+elif order.state not in ('draft', 'sent'):
+    ai['result'] = {'error': 'The quotation is already validated: changes go through the team.'}
+elif len(pids) != len(qtys):
+    ai['result'] = {'error': 'product_ids and quantities must have the same length.'}
+else:
+    Product = env['product.product'].sudo()
+    Uom = env['uom.uom'].sudo()
+    for i in range(len(pids)):
+        product = Product.browse(int(pids[i])).exists()
+        if not product or not product.sale_ok:
+            continue
+        qty = float(qtys[i] or 0)
+        line = order.order_line.filtered(lambda l: l.product_id == product)[:1]
+        uom = line.product_uom_id or product.uom_id
+        wanted = i < len(units) and (units[i] or '').strip()
+        if wanted:
+            candidate = Uom.search([('name', '=ilike', wanted)], limit=1)
+            if candidate and (candidate == product.uom_id or candidate.relative_uom_id == product.uom_id):
+                uom = candidate
+        if line and qty <= 0:
+            line.unlink()
+        elif line:
+            line.write({'product_uom_qty': qty, 'product_uom_id': uom.id})
+        elif qty > 0:
+            order.write({'order_line': [(0, 0, {'product_id': product.id, 'product_uom_qty': qty,
+                                                'product_uom_id': uom.id})]})
+    if customer_confirmed:
+        order.write({'tag_ids': [(4, env.ref('pc_ai_order_intake.crm_tag_customer_confirmed').id)]})
+        order.message_post(body='The customer confirmed the order summary.', subtype_xmlid='mail.mt_note')
+    ai['result'] = {
+        'quotation': order.name,
+        'customer_confirmed': bool(customer_confirmed),
+        'lines': [{
+            'product': l.product_id.display_name,
+            'quantity': l.product_uom_qty,
+            'unit': l.product_uom_id.name,
+            'subtotal': l.price_subtotal,
+        } for l in order.order_line],
+        'untaxed_total': order.amount_untaxed,
+        'total': order.amount_total,
+    }
+]]></field>
+    </record>
+</odoo>

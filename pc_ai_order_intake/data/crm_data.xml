@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Part of Process Control. License LGPL-3. -->
+<odoo>
+    <record id="crm_tag_ai_order" model="crm.tag">
+        <field name="name">AI order</field>
+    </record>
+    <record id="crm_tag_channel_email" model="crm.tag">
+        <field name="name">AI order: email</field>
+    </record>
+    <record id="crm_tag_channel_whatsapp" model="crm.tag">
+        <field name="name">AI order: WhatsApp</field>
+    </record>
+    <record id="crm_tag_channel_web" model="crm.tag">
+        <field name="name">AI order: web chat</field>
+    </record>
+    <record id="crm_tag_customer_confirmed" model="crm.tag">
+        <field name="name">Confirmed by the customer</field>
+    </record>
+    <record id="crm_tag_ai_processed" model="crm.tag">
+        <field name="name">Read by the AI</field>
+    </record>
+
+    <!-- Emails sent to this team's alias become opportunities that the
+         email cron hands over to the order intake agent. -->
+    <record id="crm_team_orders" model="crm.team">
+        <field name="name">Orders by email</field>
+        <field name="use_opportunities" eval="True"/>
+        <field name="alias_name">orders</field>
+    </record>
+</odoo>
