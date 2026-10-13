@@ -1,0 +1,125 @@
+<section class="oe_container">
+    <div class="oe_row oe_spaced text-center">
+        <img src="thumbnail.png" class="img img-fluid mb-3" alt="Viavista"/>
+        <h2 class="oe_slogan">Anthropic Claude for Odoo AI</h2>
+        <h3 class="oe_slogan">Bring Claude into every AI feature of Odoo 19 Enterprise</h3>
+    </div>
+</section>
+
+<section class="oe_container oe_dark">
+    <div class="oe_row oe_spaced">
+        <div class="oe_span12 text-center">
+            <p class="oe_mt32">
+                Adds <b>Anthropic Claude</b> as a third LLM provider alongside OpenAI and Google Gemini.
+                Once the module is installed and an API key is entered, Claude models appear in every
+                place Odoo exposes a model selection &mdash; no code, no custom server actions.
+                Claude shines at long-form content, code, and regional languages, and ships with
+                <b>prompt caching</b> for roughly 90&nbsp;% discount on repeated system prompts.
+            </p>
+        </div>
+    </div>
+</section>
+
+<section class="oe_container">
+    <div class="oe_row oe_spaced text-center">
+        <h2 class="oe_slogan">Screenshots</h2>
+        <div class="oe_span12">
+            <img src="claude_ai_test.png" class="img img-fluid shadow mb-3" alt="Claude Assistant agent in Discuss"/>
+        </div>
+        <div class="oe_span12">
+            <img src="claude_ai_form.png" class="img img-fluid shadow mb-3" alt="Model selector with the full Claude line-up"/>
+        </div>
+    </div>
+</section>
+
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan">Features</h2>
+        <div class="oe_span6">
+            <h4 class="oe_mt32"><b>Three new provider models</b></h4>
+            <p>Claude Opus 4.7, Sonnet 4.6, and Haiku 4.5 (plus legacy 4.5 entries) become available wherever Odoo asks you to pick an LLM &mdash; AI Agents, AI Fields, AI Server Actions, AI Composer, Livechat bots, Knowledge, Documents, CRM.</p>
+        </div>
+        <div class="oe_span6">
+            <h4 class="oe_mt32"><b>Prompt caching out of the box</b></h4>
+            <p>Every system prompt is tagged for Anthropic's ephemeral cache. Agents that reuse the same instructions pay roughly 10&nbsp;% of the input token cost on the cached portion &mdash; a big saving for chat, Ask AI, and repeatable workflows.</p>
+        </div>
+        <div class="oe_span6">
+            <h4 class="oe_mt32"><b>Tool calling</b></h4>
+            <p>Odoo's tool / function-calling loop works transparently with Claude. The module translates OpenAI-style schemas into Anthropic <code>input_schema</code> and converts tool-call responses back, so every existing <code>ir.actions.server</code> tool keeps working.</p>
+        </div>
+        <div class="oe_span6">
+            <h4 class="oe_mt32"><b>Structured output</b></h4>
+            <p>Odoo's structured-output mode (used by AI Fields and some composer flows) is wired through a forced-tool-call, giving you clean JSON responses from Claude even though it has no native JSON schema mode.</p>
+        </div>
+        <div class="oe_span6">
+            <h4 class="oe_mt32"><b>Multimodal</b></h4>
+            <p>Text, image, and PDF attachments are forwarded as base64 content blocks. Send a scanned invoice or product photo to a Claude agent and it can read it.</p>
+        </div>
+        <div class="oe_span6">
+            <h4 class="oe_mt32"><b>Ready-to-use Claude Assistant</b></h4>
+            <p>A pre-configured agent called <b>Claude Assistant</b> is installed with the module: read-only database access, Haiku 4.5 default (cheapest tier), tailored system prompt for BCS/regional languages. Mention it in any Discuss channel to start chatting.</p>
+        </div>
+        <div class="oe_span6">
+            <h4 class="oe_mt32"><b>Single-setting configuration</b></h4>
+            <p>Enter your Anthropic API key in <i>Settings &rarr; General Settings &rarr; AI</i> and you are done. Falls back to the <code>ODOO_AI_ANTHROPIC_TOKEN</code> environment variable for container deployments.</p>
+        </div>
+        <div class="oe_span6">
+            <h4 class="oe_mt32"><b>Non-invasive integration</b></h4>
+            <p>The module registers Claude through Odoo's own provider abstraction &mdash; OpenAI and Google agents keep working exactly as before. No forks, no replaced code, no persistent schema changes.</p>
+        </div>
+    </div>
+</section>
+
+<section class="oe_container oe_dark">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan">Getting started</h2>
+        <div class="oe_span12">
+            <ol>
+                <li>Install the module from the Apps menu.</li>
+                <li>Go to <i>Settings &rarr; General Settings &rarr; AI</i> and paste your Anthropic API key.</li>
+                <li>Mention <b>@Claude Assistant</b> in any Discuss channel, or pick a Claude model in any existing AI Agent / Field / Server Action.</li>
+                <li>Done &mdash; Claude responses stream back like any other provider.</li>
+            </ol>
+            <p>
+                Need a key? Sign up at <a href="https://console.anthropic.com">console.anthropic.com</a> and generate one under <i>Settings &rarr; API Keys</i>.
+            </p>
+        </div>
+    </div>
+</section>
+
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan">Limitations</h2>
+        <div class="oe_span12">
+            <ul>
+                <li><b>No native embeddings.</b> Anthropic does not ship an embedding API; embedding requests continue to go to OpenAI or Google. This only affects RAG-style Sources on AI Agents &mdash; chat, AI Fields, and tool use are unaffected.</li>
+                <li><b>No web grounding.</b> Claude does not expose a web-search tool in the provider API. Agents that need live web lookups should stay on Gemini or OpenAI.</li>
+            </ul>
+        </div>
+    </div>
+</section>
+
+<section class="oe_container oe_dark">
+    <div class="oe_row oe_spaced text-center">
+        <h2 class="oe_slogan">Technical information</h2>
+        <div class="oe_span12">
+            <p>
+                <b>Odoo version:</b> 19.0 Enterprise<br/>
+                <b>License:</b> LGPL-3<br/>
+                <b>Dependencies:</b> ai, ai_app<br/>
+                <b>External dependencies:</b> python-requests<br/>
+                <b>Author:</b> Viavista d.o.o.
+            </p>
+        </div>
+    </div>
+</section>
+
+<section class="oe_container">
+    <div class="oe_row oe_spaced text-center">
+        <h2 class="oe_slogan">Need help?</h2>
+        <p>
+            Visit <a href="https://www.viavista.ba">www.viavista.ba</a> or contact us at
+            <a href="mailto:info@viavista.ba">info@viavista.ba</a>.
+        </p>
+    </div>
+</section>
