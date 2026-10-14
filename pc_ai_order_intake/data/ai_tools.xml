@@ -5,9 +5,9 @@
         AI tools of the order intake agent. Rules verified on 19.0:
         - model_id is ai.agent (the tool runs in the agent context); business
           models are reached through env[...].
-        - lookup tools are intermediate (no end message); create and update
-          close the turn, so they allow the end message and declare
-          __end_message in their schema.
+        - every tool is intermediate (no end message): the model always writes
+          the final reply itself, with the summary the tools return. With an
+          end message the model closed the turn with a bare "quotation created".
         - the chat visitor of the website is the public user: tools work in
           sudo, but only on what the arguments point at, and the quotation is
           always left in draft for a person to validate.
@@ -196,8 +196,8 @@ else:
         <field name="model_id" ref="ai.model_ai_agent"/>
         <field name="state">code</field>
         <field name="use_in_ai" eval="True"/>
-        <field name="ai_tool_allow_end_message" eval="True"/>
-        <field name="ai_tool_description">Creates the order as a draft quotation for the customer, to be validated by a person. product_ids, quantities and uoms are parallel lists: one position per line. Leave a uom empty to use the product unit. Returns the quotation number, the lines with prices and the totals, to summarise them to the customer.</field>
+        <field name="ai_tool_allow_end_message" eval="False"/>
+        <field name="ai_tool_description">Creates the order as a draft quotation for the customer, to be validated by a person. product_ids, quantities and uoms are parallel lists: one position per line. Leave a uom empty to use the product unit. Returns the quotation number, the lines with prices and the totals: then write the reply to the customer yourself, with that summary.</field>
         <field name="ai_tool_schema">{
     "type": "object",
     "properties": {
@@ -208,8 +208,7 @@ else:
         "uoms": {"type": "array", "items": {"type": "string"}, "description": "Unit name of each line, from the units returned by AI Orders: Find products"},
         "channel": {"type": "string", "description": "Channel the order came from: web, email or whatsapp"},
         "customer_message": {"type": "string", "description": "The customer's original message, verbatim"},
-        "lead_id": {"type": "integer", "description": "Opportunity id when the order arrived by email"},
-        "__end_message": {"type": "string", "description": "Final message for the customer, if no further step is needed"}
+        "lead_id": {"type": "integer", "description": "Opportunity id when the order arrived by email"}
     },
     "required": ["partner_id", "product_ids", "quantities", "channel"]
 }</field>
@@ -292,8 +291,8 @@ else:
         <field name="model_id" ref="ai.model_ai_agent"/>
         <field name="state">code</field>
         <field name="use_in_ai" eval="True"/>
-        <field name="ai_tool_allow_end_message" eval="True"/>
-        <field name="ai_tool_description">Changes a draft quotation of the same customer: sets the quantity of each given product (adds the line if missing, removes it with quantity 0) and, when the customer confirms the summary, marks it as confirmed by the customer. It never confirms the order itself: the team validates it.</field>
+        <field name="ai_tool_allow_end_message" eval="False"/>
+        <field name="ai_tool_description">Changes a draft quotation of the same customer: sets the quantity of each given product (adds the line if missing, removes it with quantity 0) and, when the customer confirms the summary, marks it as confirmed by the customer. It never confirms the order itself: the team validates it. Then write the reply to the customer yourself.</field>
         <field name="ai_tool_schema">{
     "type": "object",
     "properties": {
@@ -303,8 +302,7 @@ else:
         "product_ids": {"type": "array", "items": {"type": "integer"}, "description": "Product id of each line to change"},
         "quantities": {"type": "array", "items": {"type": "number"}, "description": "New quantity of each product, 0 to remove it"},
         "uoms": {"type": "array", "items": {"type": "string"}, "description": "Unit name of each line, empty for the product unit"},
-        "customer_confirmed": {"type": "boolean", "description": "True when the customer has confirmed the summary"},
-        "__end_message": {"type": "string", "description": "Final message for the customer, if no further step is needed"}
+        "customer_confirmed": {"type": "boolean", "description": "True when the customer has confirmed the summary"}
     },
     "required": ["quotation", "partner_id"]
 }</field>
