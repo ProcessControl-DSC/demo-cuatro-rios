@@ -5,7 +5,7 @@
     "nodes": [
       {
         "parameters": {
-          "content": "## 1 · Entra la llamada\nTwilio pregunta a n8n qué hacer. n8n saluda con voz (Lucía) y escucha el pedido; Twilio pasa la voz a texto.",
+          "content": "## 1 · Entra la llamada\nTwilio pregunta a n8n qué hacer. n8n saluda con voz y escucha el pedido; Twilio pasa la voz a texto.",
           "width": 520,
           "height": 300,
           "color": 7
@@ -71,7 +71,7 @@
       {
         "parameters": {
           "respondWith": "text",
-          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Gather input=\"speech\" language=\"es-ES\" speechTimeout=\"3\" timeout=\"6\" hints=\"parrillero, chorizo parrillero, picadillo, hamburguesa, burger, costilla, costilla adobada, carne fiesta, pack barbacoa, oferta de la semana, lo de siempre, kilos, cajas, unidades, bandejas\" action=\"https://trodden-donator-untitled.ngrok-free.dev/webhook/twilio-pedido?t=1\" method=\"POST\"><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">Hola, has llamado a pedidos de Cuatro Ríos. Dime qué necesitas, por ejemplo: diez kilos de parrillero y dos cajas de picadillo.</Say></Gather><Gather input=\"speech\" language=\"es-ES\" speechTimeout=\"3\" timeout=\"6\" hints=\"parrillero, chorizo parrillero, picadillo, hamburguesa, burger, costilla, costilla adobada, carne fiesta, pack barbacoa, oferta de la semana, lo de siempre, kilos, cajas, unidades, bandejas\" action=\"https://trodden-donator-untitled.ngrok-free.dev/webhook/twilio-pedido?t=1\" method=\"POST\"><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">¿Sigues ahí? Dime tu pedido.</Say></Gather><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">No te he oído. Puedes volver a llamar cuando quieras. Hasta luego.</Say></Response>",
+          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Gather input=\"speech\" language=\"es-ES\" speechModel=\"phone_call\" speechTimeout=\"2\" timeout=\"6\" hints=\"parrillero, chorizo parrillero, picadillo, hamburguesa, burger, costilla, costilla adobada, carne fiesta, pack barbacoa, oferta de la semana, lo de siempre, kilos, cajas, unidades, bandejas\" action=\"https://trodden-donator-untitled.ngrok-free.dev/webhook/twilio-pedido?t=1\" method=\"POST\"><Say voice=\"Google.es-ES-Chirp3-HD-Aoede\" language=\"es-ES\">Hola, has llamado a pedidos de Cuatro Ríos. Dime qué necesitas, por ejemplo: diez kilos de parrillero y dos cajas de picadillo.</Say></Gather><Gather input=\"speech\" language=\"es-ES\" speechModel=\"phone_call\" speechTimeout=\"2\" timeout=\"6\" hints=\"parrillero, chorizo parrillero, picadillo, hamburguesa, burger, costilla, costilla adobada, carne fiesta, pack barbacoa, oferta de la semana, lo de siempre, kilos, cajas, unidades, bandejas\" action=\"https://trodden-donator-untitled.ngrok-free.dev/webhook/twilio-pedido?t=1\" method=\"POST\"><Say voice=\"Google.es-ES-Chirp3-HD-Aoede\" language=\"es-ES\">¿Sigues ahí? Dime tu pedido.</Say></Gather><Say voice=\"Google.es-ES-Chirp3-HD-Aoede\" language=\"es-ES\">No te he oído. Puedes volver a llamar cuando quieras. Hasta luego.</Say></Response>",
           "options": {
             "responseHeaders": {
               "entries": [
@@ -112,7 +112,7 @@
       {
         "parameters": {
           "respondWith": "text",
-          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">Perfecto, un momento, te preparo el pedido.</Say><Pause length=\"10\"/><Redirect method=\"POST\">https://trodden-donator-untitled.ngrok-free.dev/webhook/twilio-respuesta?t={{ $json.query.t || 1 }}&amp;n=0</Redirect></Response>",
+          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Say voice=\"Google.es-ES-Chirp3-HD-Aoede\" language=\"es-ES\">Perfecto, un momento, te preparo el pedido.</Say><Pause length=\"10\"/><Redirect method=\"POST\">https://trodden-donator-untitled.ngrok-free.dev/webhook/twilio-respuesta?t={{ $json.query.t || 1 }}&amp;n=0</Redirect></Response>",
           "options": {
             "responseHeaders": {
               "entries": [
@@ -232,7 +232,7 @@
                   },
                   "conditions": [
                     {
-                      "id": "8a8c4fb2-228d-449d-894f-0084114e0b71",
+                      "id": "778d3db7-d7a0-4629-b101-21c787e66108",
                       "leftValue": "={{ $json.state }}",
                       "operator": {
                         "type": "string",
@@ -256,7 +256,7 @@
                   },
                   "conditions": [
                     {
-                      "id": "7289042c-2338-4730-9524-93074c6614f4",
+                      "id": "7ab94e97-19f7-4b7a-bf1b-bb0b8c0e38b0",
                       "leftValue": "={{ $json.state }}",
                       "operator": {
                         "type": "string",
@@ -280,7 +280,7 @@
                   },
                   "conditions": [
                     {
-                      "id": "3b08eb7d-0922-4c05-a2e5-eadd3e3ed13b",
+                      "id": "1f5cbb4a-00f8-4d17-ad5b-9561a4852d90",
                       "leftValue": "={{ $json.state }}",
                       "operator": {
                         "type": "string",
@@ -304,7 +304,7 @@
                   },
                   "conditions": [
                     {
-                      "id": "79a9c81e-53f0-46ae-9c7e-396427de8e18",
+                      "id": "5b34c510-b879-4f30-a81b-0ce68d3c2576",
                       "leftValue": "={{ $json.state }}",
                       "operator": {
                         "type": "string",
@@ -361,7 +361,7 @@
       {
         "parameters": {
           "respondWith": "text",
-          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">{{ $json.say }}</Say><Gather input=\"speech\" language=\"es-ES\" speechTimeout=\"3\" timeout=\"6\" hints=\"parrillero, chorizo parrillero, picadillo, hamburguesa, burger, costilla, costilla adobada, carne fiesta, pack barbacoa, oferta de la semana, lo de siempre, kilos, cajas, unidades, bandejas\" action=\"https://trodden-donator-untitled.ngrok-free.dev/webhook/twilio-pedido?t={{ $json.turn + 1 }}\" method=\"POST\"><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">Si quieres añadir o cambiar algo, dímelo ahora. Si no, puedes colgar.</Say></Gather><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">Gracias por llamar a Cuatro Ríos. Hasta luego.</Say><Hangup/></Response>",
+          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Say voice=\"Google.es-ES-Chirp3-HD-Aoede\" language=\"es-ES\">{{ $json.say }}</Say><Gather input=\"speech\" language=\"es-ES\" speechModel=\"phone_call\" speechTimeout=\"2\" timeout=\"6\" hints=\"parrillero, chorizo parrillero, picadillo, hamburguesa, burger, costilla, costilla adobada, carne fiesta, pack barbacoa, oferta de la semana, lo de siempre, kilos, cajas, unidades, bandejas\" action=\"https://trodden-donator-untitled.ngrok-free.dev/webhook/twilio-pedido?t={{ $json.turn + 1 }}\" method=\"POST\"><Say voice=\"Google.es-ES-Chirp3-HD-Aoede\" language=\"es-ES\">Si quieres añadir o cambiar algo, dímelo ahora. Si no, puedes colgar.</Say></Gather><Say voice=\"Google.es-ES-Chirp3-HD-Aoede\" language=\"es-ES\">Gracias por llamar a Cuatro Ríos. Hasta luego.</Say><Hangup/></Response>",
           "options": {
             "responseHeaders": {
               "entries": [
@@ -385,7 +385,7 @@
       {
         "parameters": {
           "respondWith": "text",
-          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">{{ $json.say }}</Say><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">Si necesitas algo más, vuelve a llamarnos. Gracias por llamar a Cuatro Ríos.</Say><Hangup/></Response>",
+          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Say voice=\"Google.es-ES-Chirp3-HD-Aoede\" language=\"es-ES\">{{ $json.say }}</Say><Say voice=\"Google.es-ES-Chirp3-HD-Aoede\" language=\"es-ES\">Si necesitas algo más, vuelve a llamarnos. Gracias por llamar a Cuatro Ríos.</Say><Hangup/></Response>",
           "options": {
             "responseHeaders": {
               "entries": [
@@ -409,7 +409,7 @@
       {
         "parameters": {
           "respondWith": "text",
-          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">No reconozco este número como cliente de Cuatro Ríos. He pasado tu llamada al equipo de pedidos y te llamarán enseguida. Gracias.</Say><Hangup/></Response>",
+          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Say voice=\"Google.es-ES-Chirp3-HD-Aoede\" language=\"es-ES\">No reconozco este número como cliente de Cuatro Ríos. He pasado tu llamada al equipo de pedidos y te llamarán enseguida. Gracias.</Say><Hangup/></Response>",
           "options": {
             "responseHeaders": {
               "entries": [
@@ -433,7 +433,7 @@
       {
         "parameters": {
           "respondWith": "text",
-          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">Perdona, ahora mismo no puedo preparar tu pedido. Lo he anotado y el equipo de pedidos te llamará enseguida. Gracias por llamar a Cuatro Ríos.</Say><Hangup/></Response>",
+          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Say voice=\"Google.es-ES-Chirp3-HD-Aoede\" language=\"es-ES\">Perdona, ahora mismo no puedo preparar tu pedido. Lo he anotado y el equipo de pedidos te llamará enseguida. Gracias por llamar a Cuatro Ríos.</Say><Hangup/></Response>",
           "options": {
             "responseHeaders": {
               "entries": [
@@ -580,7 +580,7 @@
         ]
       }
     },
-    "versionId": "fa3c6568-6991-4f3c-b499-7114584be033",
+    "versionId": "80d2e8a0-4874-41f6-bd27-5e8a31eb7722",
     "active": false,
     "settings": {
       "executionOrder": "v1"
