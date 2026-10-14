@@ -17,33 +17,53 @@
 agent = env.ref('pc_ai_order_intake.ai_agent_order_intake')
 team = env.ref('pc_ai_order_intake.crm_team_orders')
 done = env.ref('pc_ai_order_intake.crm_tag_ai_processed')
-leads = env['crm.lead'].search([('team_id', '=', team.id), ('tag_ids', 'not in', done.ids)], order='id', limit=5)
-for lead in leads:
+# the mail gateway keeps each email as a message of the lead (the description
+# stays empty); a conversation needs an answer when its last email is newer
+# than our last comment (reply to the customer, or note on failure)
+since = datetime.datetime.now() - datetime.timedelta(days=3)
+incoming = env['mail.message'].search([('model', '=', 'crm.lead'), ('message_type', '=', 'email'),
+                                       ('date', '>=', since)])
+leads = env['crm.lead'].browse(list(set(incoming.mapped('res_id')))).exists().filtered(
+    lambda l: l.team_id == team)
+for lead in leads.sorted('id')[:5]:
+    messages = env['mail.message'].search([('model', '=', 'crm.lead'), ('res_id', '=', lead.id),
+                                           ('message_type', 'in', ('email', 'comment'))], order='id')
+    emails = messages.filtered(lambda m: m.message_type == 'email')
+    if not emails or messages.filtered(lambda m: m.message_type == 'comment' and m.id > emails[-1].id):
+        continue
     lead.write({'tag_ids': [(4, done.id)]})
     if not lead.partner_id and lead.email_from:
         lead.write({'partner_id': env['res.partner'].find_or_create(lead.email_from).id})
-    # the mail gateway keeps the email as a message of the lead, not in its description
-    email = env['mail.message'].search([('model', '=', 'crm.lead'), ('res_id', '=', lead.id),
-                                        ('message_type', '=', 'email')], order='id', limit=1)
+    conversation = []
+    for message in messages:
+        if message.message_type == 'email' or message.partner_ids:
+            who = 'Customer' if message.message_type == 'email' else 'Us'
+            conversation.append('%s:\n%s' % (who, message.body or ''))
     attachments = []
-    for att in email.attachment_ids | env['ir.attachment'].search([('res_model', '=', 'crm.lead'), ('res_id', '=', lead.id)]):
+    for att in emails.attachment_ids:
         if att.index_content:
             attachments.append('%s:\n%s' % (att.name, att.index_content[:6000]))
+    quotations = env['sale.order'].search([('opportunity_id', '=', lead.id)])
     prompt = (
-        'Channel: email\nSender: %s\nCustomer recognised by the address: %s\nlead_id: %s\nSubject: %s\n\n'
-        'Message (HTML):\n%s\n\nText of the attachments:\n%s\n\n'
-        'Process the order. Your answer is emailed as it is to the customer: write only the body of '
-        'the email, without a subject line and without comments for the team.'
+        'Channel: email\nSender: %s\nCustomer recognised by the address: %s\nlead_id: %s\nSubject: %s\n'
+        'Quotations already created in this conversation: %s\n\n'
+        'Conversation, oldest first (HTML):\n%s\n\nText of the attachments:\n%s\n\n'
+        'Answer the customer\'s last email. Your answer is emailed as it is to the customer: write only '
+        'the body of the email, without a subject line and without comments for the team.'
     ) % (
         lead.email_from or '',
         lead.partner_id and '%s (partner_id %s)' % (lead.partner_id.commercial_partner_id.name, lead.partner_id.id) or 'none',
-        lead.id, lead.name or '', email.body or lead.description or '', '\n\n'.join(attachments) or 'none',
+        lead.id, lead.name or '',
+        ', '.join('%s (%s)' % (q.name, q.state) for q in quotations) or 'none',
+        '\n\n'.join(conversation), '\n\n'.join(attachments) or 'none',
     )
     try:
         reply = '\n'.join(agent.with_context(
             ai_order_partner_id=lead.partner_id.commercial_partner_id.id or 0).get_direct_response(prompt))
     except Exception as e:
         log('AI order intake failed on lead %s: %s' % (lead.id, e), level='error')
+        lead.message_post(body='The AI could not process this email: %s' % e,
+                          message_type='comment', subtype_xmlid='mail.mt_note')
         continue
     if reply.strip():
         lead.message_post(body=reply, partner_ids=lead.partner_id.ids,
