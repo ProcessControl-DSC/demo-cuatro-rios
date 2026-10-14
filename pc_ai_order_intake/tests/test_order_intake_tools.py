@@ -188,10 +188,33 @@ class TestOrderIntakeTools(BaseCommon):
         self.assertIn(order.get_portal_url(), reply.body)
         self.assertIn('Grill chorizo bulk', reply.body)
         self.assertEqual(reply.author_id, self.env.company.partner_id)
+        if team.alias_email:  # no alias domain on a bare test database
+            self.assertIn(team.alias_email, reply.email_from)
         # a second run does not answer twice
         with patch.object(agent_class, 'get_direct_response', return_value=['Otra vez']):
             self.env.ref('pc_ai_order_intake.ir_cron_order_intake_email').ir_actions_server_id.run()
         self.assertEqual(len(replies()), 1)
+
+    def test_clear_email_order_gets_no_answer(self):
+        """When every product is matched the customer gets no message: the
+        team validates the quotation. A note marks the email as handled, so
+        the next run does not process it again."""
+        team = self.env.ref('pc_ai_order_intake.crm_team_orders')
+        lead = self.env['crm.lead'].create({
+            'name': 'Pedido', 'team_id': team.id, 'partner_id': self.customer.id,
+            'email_from': self.customer.email,
+        })
+        lead.message_post(body='10 kg de parrillero', message_type='email', author_id=self.customer.id)
+        cron_action = self.env.ref('pc_ai_order_intake.ir_cron_order_intake_email').ir_actions_server_id
+        agent_class = type(self.env['ai.agent'])
+        with patch.object(agent_class, 'get_direct_response', return_value=['NO_REPLY']) as agent_call:
+            cron_action.run()
+            cron_action.run()
+        self.assertEqual(agent_call.call_count, 1)
+        comments = self.env['mail.message'].search([
+            ('model', '=', 'crm.lead'), ('res_id', '=', lead.id), ('message_type', '=', 'comment')])
+        self.assertEqual(len(comments), 1)
+        self.assertFalse(comments.partner_ids, "Internal note only, nothing to the customer")
 
     def test_customer_history_last_order_and_suggestions(self):
         order = self.env['sale.order'].create({

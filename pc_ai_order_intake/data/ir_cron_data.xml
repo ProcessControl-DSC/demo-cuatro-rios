@@ -51,8 +51,11 @@ for lead in leads.sorted('id')[:5]:
         'Answer the customer\'s last email. Your answer is emailed as it is to the customer: write only '
         'the body of the email, without a subject line and without comments for the team. Below your '
         'text the email adds the detail of each draft quotation (lines and totals) and a link to view '
-        'it online, so do not list the lines again: give the quotation number, the total, your doubts '
-        'if any, and ask the customer to confirm or correct it.'
+        'it online, so do not list the lines again: give the quotation number and ask only about what '
+        'could not be matched. '
+        'If every product and quantity was matched and the quotation is created or updated, answer exactly '
+        'NO_REPLY and nothing else: the customer gets no message. Write to the customer only when '
+        'something could not be matched or the customer is unknown, and ask only about that.'
     ) % (
         lead.email_from or '',
         lead.partner_id and '%s (partner_id %s)' % (lead.partner_id.commercial_partner_id.name, lead.partner_id.id) or 'none',
@@ -71,6 +74,16 @@ for lead in leads.sorted('id')[:5]:
     if not reply.strip():
         continue
     spanish = (lead.partner_id.lang or env.user.lang or '').startswith('es')
+    if reply.strip().strip('.') == 'NO_REPLY':
+        # clear order: nothing to ask the customer, the team validates the quotation
+        registered = env['sale.order'].search([('opportunity_id', '=', lead.id)]).mapped('name')
+        lead.message_post(
+            body=('Pedido registrado por la IA en %s sin dudas: no se ha escrito al cliente.' if spanish
+                  else 'Order registered by the AI in %s with no doubts: the customer was not contacted.')
+            % (', '.join(registered) or '-'),
+            author_id=(lead.company_id or env.company).partner_id.id,
+            message_type='comment', subtype_xmlid='mail.mt_note')
+        continue
     labels = {
         'product': 'Producto' if spanish else 'Product',
         'quantity': 'Cantidad' if spanish else 'Quantity',
@@ -117,11 +130,17 @@ for lead in leads.sorted('id')[:5]:
         ) % (esc(quotation.name), labels['pending'], cell, labels['product'], cell, labels['quantity'],
              cell, labels['amount'], rows, totals,
              quotation.get_base_url() + quotation.get_portal_url(), labels['view'], esc(quotation.name))
+    company = lead.company_id or env.company
+    open_quotations = env['sale.order'].search([('opportunity_id', '=', lead.id), ('state', 'in', ('draft', 'sent'))])
     posted = lead.message_post(
         body=html, body_is_html=True, subject='Re: %s' % (lead.name or ''),
         partner_ids=lead.partner_id.ids,
-        author_id=lead.company_id.partner_id.id or env.company.partner_id.id,
+        author_id=company.partner_id.id,
+        # from the orders alias, so that the customer's reply comes back to this conversation
+        email_from='"%s" <%s>' % (company.name, team.alias_email) if team.alias_email else False,
         email_layout_xmlid='mail.mail_notification_light',
+        model_description='pedido' if spanish else 'order',
+        force_record_name=', '.join(open_quotations.mapped('name')) or lead.name,
         message_type='comment', subtype_xmlid='mail.mt_comment')
     # the email queue runs hourly: send the answer now
     env['mail.mail'].sudo().search([('mail_message_id', '=', posted.id), ('state', '=', 'outgoing')]).send()
@@ -175,7 +194,10 @@ for channel in env['discuss.channel'].sudo().browse(channel_ids):
     prompt = (
         'Channel: whatsapp\nCustomer phone: +%s\nWhatsApp name: %s\nCustomer recognised by the phone: %s\n\n'
         'Recent conversation, oldest first:\n%s\n\nAnswer the customer\'s last messages. Your answer is sent as it is on WhatsApp: write only the '
-        'message for the customer.'
+        'message for the customer. '
+        'If every product and quantity was matched and the quotation is created or updated, answer exactly '
+        'NO_REPLY and nothing else: the customer gets no message. Write to the customer only when '
+        'something could not be matched or the customer is unknown, and ask only about that.'
     ) % (channel.whatsapp_number or '', channel.name or '',
          customer and '%s (partner_id %s)' % (customer.name, customer.id) or
          'none: this number is not registered, the team will contact them',
@@ -185,7 +207,7 @@ for channel in env['discuss.channel'].sudo().browse(channel_ids):
     except Exception as e:
         log('AI order intake failed on WhatsApp channel %s: %s' % (channel.id, e), level='error')
         continue
-    if reply.strip():
+    if reply.strip() and reply.strip().strip('.') != 'NO_REPLY':
         html = '<br/>'.join(line.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
                             for line in reply.split('\n'))
         channel.message_post(body=html, body_is_html=True, message_type='whatsapp_message')

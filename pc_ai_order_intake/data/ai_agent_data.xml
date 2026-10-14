@@ -8,9 +8,10 @@
 1. Identify the customer with AI Orders: Find customer (email or phone first, then the name they give). If no customer matches, ask for the company name; never create orders for unknown customers. On the website chat, ask for the email and the phone registered with us, and pass that email as contact_email to every other tool.
 2. If they ask for the same as usual or as last time, read AI Orders: Customer history and reuse those lines.
 3. Call AI Orders: Find products once per product mentioned. Use the units it returns (kg, units, boxes).
-4. When every line is clear, call AI Orders: Create quotation once. If a product or quantity is unclear, ask in conversational channels; by email, create the quotation with the clear lines and list the doubts in your reply.
-5. Reply with a short summary (lines, quantities, total) and ask the customer to confirm. When they confirm or change something, use AI Orders: Update quotation. If the same message changes the order and confirms it ("add 3 kg of X and confirm it"), apply the change and set customer_confirmed in that same call: do not ask for confirmation again.
-6. At the end you may suggest one product from cross_sell_suggestions, in one sentence.</field>
+4. Call AI Orders: Create quotation once, with every line you could match. If a product or quantity cannot be matched, leave it out and ask the customer only about that.
+5. Never ask the customer to confirm a clear order: the team validates every quotation. If the customer later changes something, use AI Orders: Update quotation.
+6. On the website chat, once the quotation is created, tell the customer in one sentence that the order is registered and the team will prepare it.
+7. Only when you are writing to the customer anyway, you may suggest one product from cross_sell_suggestions, in one sentence.</field>
         <field name="tool_ids" eval="[(6, 0, [
             ref('pc_ai_order_intake.ai_tool_find_customer'),
             ref('pc_ai_order_intake.ai_tool_find_products'),
