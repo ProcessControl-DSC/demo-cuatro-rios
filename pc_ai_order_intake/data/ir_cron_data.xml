@@ -29,7 +29,8 @@ for lead in leads:
     prompt = (
         'Channel: email\nSender: %s\nCustomer recognised by the address: %s\nlead_id: %s\nSubject: %s\n\n'
         'Message (HTML):\n%s\n\nText of the attachments:\n%s\n\n'
-        'Process the order and write the reply email to the customer.'
+        'Process the order. Your answer is emailed as it is to the customer: write only the body of '
+        'the email, without a subject line and without comments for the team.'
     ) % (
         lead.email_from or '',
         lead.partner_id and '%s (partner_id %s)' % (lead.partner_id.commercial_partner_id.name, lead.partner_id.id) or 'none',
@@ -93,7 +94,8 @@ for channel in env['discuss.channel'].sudo().browse(channel_ids):
     customer = sender.commercial_partner_id
     prompt = (
         'Channel: whatsapp\nCustomer phone: +%s\nWhatsApp name: %s\nCustomer recognised by the phone: %s\n\n'
-        'Recent conversation, oldest first:\n%s\n\nAnswer the customer\'s last messages.'
+        'Recent conversation, oldest first:\n%s\n\nAnswer the customer\'s last messages. Your answer is sent as it is on WhatsApp: write only the '
+        'message for the customer.'
     ) % (channel.whatsapp_number or '', channel.name or '',
          customer and '%s (partner_id %s)' % (customer.name, customer.id) or
          'none: this number is not registered, the team will contact them',
