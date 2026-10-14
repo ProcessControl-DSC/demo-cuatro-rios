@@ -1,4 +1,6 @@
 # Part of Process Control. License LGPL-3.
+from unittest.mock import patch
+
 from odoo.tests import tagged
 from odoo.addons.base.tests.common import BaseCommon
 
@@ -153,6 +155,43 @@ class TestOrderIntakeTools(BaseCommon):
             'partner_id': other.id, 'product_ids': [self.chorizo.id], 'quantities': [1],
             'channel': 'email'})
         self.assertIn('error', result)
+
+    def test_email_answer_formatted_with_quotation_link(self):
+        """The email cron answers the customer's last email: the agent text
+        in paragraphs, the quotation lines and totals, and a link to the
+        quotation in the customer portal (view only, no online acceptance)."""
+        team = self.env.ref('pc_ai_order_intake.crm_team_orders')
+        lead = self.env['crm.lead'].create({
+            'name': 'Pedido', 'team_id': team.id, 'partner_id': self.customer.id,
+            'email_from': self.customer.email,
+        })
+        lead.message_post(body='Quiero 2 cajas de parrillero', message_type='email',
+                          author_id=self.customer.id)
+        created = self._run_tool(
+            'pc_ai_order_intake.ai_tool_create_quotation',
+            partner_id=self.customer.id, product_ids=[self.chorizo.id], quantities=[2],
+            uoms=['Box 5 kg test'], channel='email', lead_id=lead.id)
+        order = self.env['sale.order'].search([('name', '=', created['quotation'])])
+        self.assertFalse(order.require_signature or order.require_payment)
+        agent_class = type(self.env['ai.agent'])
+        with patch.object(agent_class, 'get_direct_response',
+                          return_value=['Hola, Juan:\nTe he preparado el pedido.\nUn saludo']):
+            self.env.ref('pc_ai_order_intake.ir_cron_order_intake_email').ir_actions_server_id.run()
+        def replies():
+            return self.env['mail.message'].search([
+                ('model', '=', 'crm.lead'), ('res_id', '=', lead.id),
+                ('message_type', '=', 'comment'), ('partner_ids', '!=', False)])
+        reply = replies()
+        self.assertEqual(len(reply), 1)
+        self.assertIn('<p', reply.body)
+        self.assertIn('Te he preparado el pedido.', reply.body)
+        self.assertIn(order.get_portal_url(), reply.body)
+        self.assertIn('Grill chorizo bulk', reply.body)
+        self.assertEqual(reply.author_id, self.env.company.partner_id)
+        # a second run does not answer twice
+        with patch.object(agent_class, 'get_direct_response', return_value=['Otra vez']):
+            self.env.ref('pc_ai_order_intake.ir_cron_order_intake_email').ir_actions_server_id.run()
+        self.assertEqual(len(replies()), 1)
 
     def test_customer_history_last_order_and_suggestions(self):
         order = self.env['sale.order'].create({

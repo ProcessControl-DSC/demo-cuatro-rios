@@ -49,7 +49,10 @@ for lead in leads.sorted('id')[:5]:
         'Quotations already created in this conversation: %s\n\n'
         'Conversation, oldest first (HTML):\n%s\n\nText of the attachments:\n%s\n\n'
         'Answer the customer\'s last email. Your answer is emailed as it is to the customer: write only '
-        'the body of the email, without a subject line and without comments for the team.'
+        'the body of the email, without a subject line and without comments for the team. Below your '
+        'text the email adds the detail of each draft quotation (lines and totals) and a link to view '
+        'it online, so do not list the lines again: give the quotation number, the total, your doubts '
+        'if any, and ask the customer to confirm or correct it.'
     ) % (
         lead.email_from or '',
         lead.partner_id and '%s (partner_id %s)' % (lead.partner_id.commercial_partner_id.name, lead.partner_id.id) or 'none',
@@ -65,12 +68,63 @@ for lead in leads.sorted('id')[:5]:
         lead.message_post(body='The AI could not process this email: %s' % e,
                           message_type='comment', subtype_xmlid='mail.mt_note')
         continue
-    if reply.strip():
-        posted = lead.message_post(body=reply, partner_ids=lead.partner_id.ids,
-                                   author_id=lead.company_id.partner_id.id or env.company.partner_id.id,
-                                   message_type='comment', subtype_xmlid='mail.mt_comment')
-        # the email queue runs hourly: send the answer now
-        env['mail.mail'].sudo().search([('mail_message_id', '=', posted.id), ('state', '=', 'outgoing')]).send()
+    if not reply.strip():
+        continue
+    spanish = (lead.partner_id.lang or env.user.lang or '').startswith('es')
+    labels = {
+        'product': 'Producto' if spanish else 'Product',
+        'quantity': 'Cantidad' if spanish else 'Quantity',
+        'amount': 'Importe' if spanish else 'Amount',
+        'untaxed': 'Base imponible' if spanish else 'Untaxed',
+        'taxes': 'Impuestos' if spanish else 'Taxes',
+        'total': 'Total',
+        'view': 'Ver presupuesto' if spanish else 'View quotation',
+        'pending': 'Pendiente de validar por nuestro equipo' if spanish else 'Pending validation by our team',
+    }
+
+    def esc(text):
+        return (text or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+    def money(amount, currency):
+        value = ('%.2f' % amount).replace('.', ',') if spanish else '%.2f' % amount
+        return '%s %s' % (value, currency.symbol or '') if currency.position == 'after' else '%s %s' % (currency.symbol or '', value)
+
+    html = ''.join('<p style="margin:0 0 12px 0;">%s</p>' % esc(line) for line in reply.split('\n') if line.strip())
+    cell = 'padding:6px 8px;border-bottom:1px solid #e5e5e5;'
+    for quotation in env['sale.order'].search([('opportunity_id', '=', lead.id), ('state', 'in', ('draft', 'sent'))]):
+        rows = ''.join(
+            '<tr><td style="%s">%s</td><td style="%stext-align:right;">%s %s</td><td style="%stext-align:right;">%s</td></tr>' % (
+                cell, esc(line.product_id.name), cell,
+                ('%g' % line.product_uom_qty).replace('.', ',') if spanish else '%g' % line.product_uom_qty,
+                esc(line.product_uom_id.name), cell, money(line.price_subtotal, quotation.currency_id))
+            for line in quotation.order_line if line.product_id)
+        totals = ''.join(
+            '<tr><td colspan="2" style="padding:4px 8px;text-align:right;%s">%s</td><td style="padding:4px 8px;text-align:right;%s">%s</td></tr>' % (
+                style, label, style, money(amount, quotation.currency_id))
+            for label, amount, style in (
+                (labels['untaxed'], quotation.amount_untaxed, ''),
+                (labels['taxes'], quotation.amount_tax, ''),
+                (labels['total'], quotation.amount_total, 'font-weight:bold;')))
+        html += (
+            '<div style="margin:20px 0;padding:16px;border:1px solid #e5e5e5;border-radius:6px;">'
+            '<p style="margin:0 0 4px 0;font-size:16px;font-weight:bold;">%s</p>'
+            '<p style="margin:0 0 12px 0;color:#666666;">%s</p>'
+            '<table style="width:100%%;border-collapse:collapse;font-size:14px;">'
+            '<tr><th style="%stext-align:left;">%s</th><th style="%stext-align:right;">%s</th><th style="%stext-align:right;">%s</th></tr>'
+            '%s%s</table>'
+            '<p style="margin:16px 0 0 0;"><a href="%s" style="background-color:#C8102E;color:#ffffff;padding:10px 18px;'
+            'border-radius:4px;text-decoration:none;font-weight:bold;">%s %s</a></p></div>'
+        ) % (esc(quotation.name), labels['pending'], cell, labels['product'], cell, labels['quantity'],
+             cell, labels['amount'], rows, totals,
+             quotation.get_base_url() + quotation.get_portal_url(), labels['view'], esc(quotation.name))
+    posted = lead.message_post(
+        body=html, body_is_html=True, subject='Re: %s' % (lead.name or ''),
+        partner_ids=lead.partner_id.ids,
+        author_id=lead.company_id.partner_id.id or env.company.partner_id.id,
+        email_layout_xmlid='mail.mail_notification_light',
+        message_type='comment', subtype_xmlid='mail.mt_comment')
+    # the email queue runs hourly: send the answer now
+    env['mail.mail'].sudo().search([('mail_message_id', '=', posted.id), ('state', '=', 'outgoing')]).send()
 ]]></field>
     </record>
 
@@ -132,7 +186,9 @@ for channel in env['discuss.channel'].sudo().browse(channel_ids):
         log('AI order intake failed on WhatsApp channel %s: %s' % (channel.id, e), level='error')
         continue
     if reply.strip():
-        channel.message_post(body=reply, message_type='whatsapp_message')
+        html = '<br/>'.join(line.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                            for line in reply.split('\n'))
+        channel.message_post(body=html, body_is_html=True, message_type='whatsapp_message')
 ]]></field>
     </record>
 </odoo>

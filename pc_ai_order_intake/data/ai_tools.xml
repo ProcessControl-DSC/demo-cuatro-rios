@@ -265,6 +265,9 @@ else:
         'origin': 'AI %s' % (channel or ''),
         'opportunity_id': lead.id,
         'tag_ids': [(6, 0, tags.ids)],
+        # the customer can see it in the portal but not accept it: the team validates
+        'require_signature': False,
+        'require_payment': False,
         'order_line': lines,
     })
     if customer_message:
