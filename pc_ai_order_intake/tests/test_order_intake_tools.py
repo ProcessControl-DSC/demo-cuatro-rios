@@ -139,6 +139,21 @@ class TestOrderIntakeTools(BaseCommon):
             channel='web', contact_email='orders@testgrill.example.com')
         self.assertNotIn('error', result)
 
+    def test_public_visitor_verified_with_contact_email(self):
+        """The visitor may give the email of a contact of the customer: the
+        tools work on the company record and must accept it."""
+        buyer = self.env['res.partner'].create({
+            'name': 'Buyer of Test Grill', 'parent_id': self.customer.id,
+            'email': 'buyer@testgrill.example.com', 'phone': '+34 600 999 222'})
+        result = self._run_tool_as_public('pc_ai_order_intake.ai_tool_find_customer',
+                                          email='buyer@testgrill.example.com', phone='600999222')
+        self.assertEqual([c['partner_id'] for c in result['customers']], [self.customer.id])
+        result = self._run_tool_as_public(
+            'pc_ai_order_intake.ai_tool_customer_history',
+            partner_id=self.customer.id, contact_email='buyer@testgrill.example.com')
+        self.assertNotIn('error', result)
+        self.assertTrue(buyer)
+
     def test_sender_lock_from_email_or_whatsapp(self):
         """A message processed by the crons may only touch its sender, whatever
         the text asks for (prompt injection in an email)."""

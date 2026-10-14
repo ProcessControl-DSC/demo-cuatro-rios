@@ -140,9 +140,11 @@ ai['result'] = {'products': products, 'note': '' if products else 'No product fo
 }</field>
         <field name="code"><![CDATA[
 partner = env['res.partner'].sudo().browse(int(partner_id or 0)).exists()
+# the email may belong to any contact of the customer, not only to the company record
 verified = env.user.has_group('base.group_user') or bool(
-    partner and contact_email and contact_email.strip().lower() in (
-        (partner.email or '').lower(), (partner.commercial_partner_id.email or '').lower()))
+    partner and contact_email and env['res.partner'].sudo().search_count([
+        ('id', 'child_of', partner.commercial_partner_id.id),
+        ('email', '=ilike', contact_email.strip())]))
 locked = env.context.get('ai_order_partner_id')
 if locked is not None:
     verified = bool(partner) and partner.commercial_partner_id == env['res.partner'].sudo().browse(
@@ -214,9 +216,11 @@ else:
 }</field>
         <field name="code"><![CDATA[
 partner = env['res.partner'].sudo().browse(int(partner_id or 0)).exists()
+# the email may belong to any contact of the customer, not only to the company record
 verified = env.user.has_group('base.group_user') or bool(
-    partner and contact_email and contact_email.strip().lower() in (
-        (partner.email or '').lower(), (partner.commercial_partner_id.email or '').lower()))
+    partner and contact_email and env['res.partner'].sudo().search_count([
+        ('id', 'child_of', partner.commercial_partner_id.id),
+        ('email', '=ilike', contact_email.strip())]))
 locked = env.context.get('ai_order_partner_id')
 if locked is not None:
     verified = bool(partner) and partner.commercial_partner_id == env['res.partner'].sudo().browse(
@@ -311,9 +315,11 @@ else:
 }</field>
         <field name="code"><![CDATA[
 partner = env['res.partner'].sudo().browse(int(partner_id or 0)).exists()
+# the email may belong to any contact of the customer, not only to the company record
 verified = env.user.has_group('base.group_user') or bool(
-    partner and contact_email and contact_email.strip().lower() in (
-        (partner.email or '').lower(), (partner.commercial_partner_id.email or '').lower()))
+    partner and contact_email and env['res.partner'].sudo().search_count([
+        ('id', 'child_of', partner.commercial_partner_id.id),
+        ('email', '=ilike', contact_email.strip())]))
 locked = env.context.get('ai_order_partner_id')
 if locked is not None:
     verified = bool(partner) and partner.commercial_partner_id == env['res.partner'].sudo().browse(
