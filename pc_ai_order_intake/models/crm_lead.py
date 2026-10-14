@@ -66,17 +66,27 @@ class CrmLead(models.Model):
                         html2plaintext(note.body or '').strip())
             for note in notes)
         quotations = self.env['sale.order'].search([('opportunity_id', '=', lead.id)])
+        if channel == 'phone':
+            style = (
+                'Your answer is read aloud to the customer on the phone by a voice: two or three short '
+                'sentences, no lists, no links, no emojis, no symbols. Give the quotation number and the '
+                'total, and ask only about what you could not match. When you create a quotation, pass '
+                'channel=phone.')
+        else:
+            style = (
+                'Your answer is sent as it is in the chat: plain text, no Markdown and no links: the chat '
+                'adds buttons to view the quotation and the weekly offer, and shortcuts for a new order, '
+                'the usual order and the offer, so do not list those options yourself. When you create a '
+                'quotation, pass channel=%s.' % channel)
         prompt = (
-            'Channel: %(channel)s (a messaging app, conversational)\n'
+            'Channel: %(channel)s (conversational)\n'
             'Customer recognised by the phone: %(customer)s (partner_id %(customer_id)s)\n'
             'lead_id: %(lead_id)s\n'
             'Quotations already created in this conversation: %(quotations)s\n\n'
             'Recent conversation, oldest first:\n%(conversation)s\n\n'
-            'Answer the customer\'s last message, always briefly. Your answer is sent as it is in the chat: '
-            'plain text, no Markdown and no links: the chat adds buttons to view the quotation and the '
-            'weekly offer, and shortcuts for a new order, the usual order and the offer, so do not list '
-            'those options yourself. When you create a quotation, pass channel=%(channel)s.'
+            'Answer the customer\'s last message, always briefly. %(style)s'
         ) % {
+            'style': style,
             'channel': channel, 'customer': customer.name, 'customer_id': customer.id,
             'lead_id': lead.id, 'conversation': conversation or '-',
             'quotations': ', '.join('%s (%s)' % (q.name, q.state) for q in quotations) or 'none',

@@ -208,7 +208,7 @@ else:
         "product_ids": {"type": "array", "items": {"type": "integer"}, "description": "Product id of each line"},
         "quantities": {"type": "array", "items": {"type": "number"}, "description": "Quantity of each line"},
         "uoms": {"type": "array", "items": {"type": "string"}, "description": "Unit name of each line, from the units returned by AI Orders: Find products"},
-        "channel": {"type": "string", "description": "Channel the order came from, as given in the conversation: web, email, whatsapp or telegram"},
+        "channel": {"type": "string", "description": "Channel the order came from, as given in the conversation: web, email, whatsapp, telegram or phone"},
         "customer_message": {"type": "string", "description": "The customer's original message, verbatim"},
         "lead_id": {"type": "integer", "description": "Opportunity id when the order arrived by email"}
     },

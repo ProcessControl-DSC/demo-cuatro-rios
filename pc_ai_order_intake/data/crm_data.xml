@@ -13,6 +13,9 @@
     <record id="crm_tag_channel_telegram" model="crm.tag">
         <field name="name">AI order: Telegram</field>
     </record>
+    <record id="crm_tag_channel_phone" model="crm.tag">
+        <field name="name">AI order: phone</field>
+    </record>
     <record id="crm_tag_channel_web" model="crm.tag">
         <field name="name">AI order: web chat</field>
     </record>

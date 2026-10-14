@@ -44,6 +44,17 @@ class TestMessaging(BaseCommon):
         self.assertIn('Hola, Test Grill House', ''.join(notes.mapped(lambda m: str(m.body))))
 
 
+    def test_phone_channel_reads_aloud(self):
+        with patch.object(self.agent_class, 'get_direct_response',
+                          autospec=True, return_value=['Hecho']) as agent_call:
+            self.Lead._messaging_receive('phone', '34600999111', '+34600999111',
+                                         '10 kilos de parrillero', phone='+34600999111')
+        prompt = agent_call.call_args.args[1]
+        self.assertIn('read aloud', prompt)
+        lead = self.Lead.search([('messaging_ref', '=', 'phone:34600999111')])
+        self.assertIn(self.env.ref('pc_ai_order_intake.crm_tag_channel_phone'), lead.tag_ids)
+
+
 @tagged('post_install', '-at_install')
 class TestMessagingRoute(HttpCase):
 
