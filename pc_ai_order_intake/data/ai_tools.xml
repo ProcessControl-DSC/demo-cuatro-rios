@@ -199,7 +199,7 @@ else:
         <field name="state">code</field>
         <field name="use_in_ai" eval="True"/>
         <field name="ai_tool_allow_end_message" eval="False"/>
-        <field name="ai_tool_description">Creates the order as a draft quotation for the customer, to be validated by a person. product_ids, quantities and uoms are parallel lists: one position per line. Leave a uom empty to use the product unit. Returns the quotation number, the lines with prices and the totals: then write the reply to the customer yourself, with that summary.</field>
+        <field name="ai_tool_description">Creates the order as a draft quotation for the customer, to be validated by a person. product_ids, quantities and uoms are parallel lists: one position per line. Leave a uom empty to use the product unit. Returns the quotation number, a link to view it online (portal_url), the lines with prices and the totals: then write the reply to the customer yourself. On the website chat, give the link as a Markdown link such as [View quotation S00012](portal_url).</field>
         <field name="ai_tool_schema">{
     "type": "object",
     "properties": {
@@ -279,6 +279,7 @@ else:
     ai['result'] = {
         'quotation': order.name,
         'state': 'draft, pending validation by the team',
+        'portal_url': order.get_base_url() + order.get_portal_url(),
         'lines': [{
             'product': l.product_id.display_name,
             'quantity': l.product_uom_qty,
@@ -361,6 +362,7 @@ else:
         order.message_post(body='The customer confirmed the order summary.', subtype_xmlid='mail.mt_note')
     ai['result'] = {
         'quotation': order.name,
+        'portal_url': order.get_base_url() + order.get_portal_url(),
         'customer_confirmed': bool(customer_confirmed),
         'lines': [{
             'product': l.product_id.display_name,

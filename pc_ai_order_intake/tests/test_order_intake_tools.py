@@ -64,6 +64,7 @@ class TestOrderIntakeTools(BaseCommon):
         self.assertEqual(order.partner_id, self.customer)
         self.assertEqual(order.order_line.mapped('product_uom_id'), self.box | self.burger.uom_id)
         self.assertIn(self.env.ref('pc_ai_order_intake.crm_tag_channel_whatsapp'), order.tag_ids)
+        self.assertIn(order.get_portal_url(), result['portal_url'])
 
     def test_create_quotation_rejects_mismatched_lines(self):
         result = self._run_tool(
