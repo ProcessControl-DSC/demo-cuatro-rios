@@ -1,0 +1,829 @@
+[
+  {
+    "id": "cuatroriosTelegr",
+    "name": "Cuatro Ríos · pedidos por Telegram",
+    "nodes": [
+      {
+        "parameters": {
+          "content": "## 1 · Entrada\nEl cliente escribe al bot de Cuatro Ríos. n8n lo recibe, traduce los atajos («🔁 Lo de siempre»…) y marca el tipo de mensaje.",
+          "width": 520,
+          "height": 400,
+          "color": 7
+        },
+        "id": "5269ba69-efc0-579b-80f4-53298079e985",
+        "name": "Nota entrada",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -60,
+          80
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 2 · Tipo de mensaje\nNotas de voz: se transcriben en el Mac con Whisper (el audio no sale del equipo).\nFotos: de momento se pide el pedido por escrito.\nTexto y teléfono compartido: a Odoo.",
+          "width": 300,
+          "height": 860,
+          "color": 5
+        },
+        "id": "2b2c66ef-1e20-5e15-acb5-b25eed0e0485",
+        "name": "Nota tipo",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          500,
+          80
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 3 · Odoo\nIdentifica al cliente por el teléfono que comparte (verificado por Telegram), guarda la conversación en CRM y el agente IA crea o cambia el presupuesto en borrador.",
+          "width": 520,
+          "height": 620,
+          "color": 4
+        },
+        "id": "857ba54f-f79c-5fe5-bccc-4dfb56d616fe",
+        "name": "Nota odoo",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          840,
+          80
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 4 · Respuesta\nBotones nativos de Telegram: compartir teléfono, atajos y ver el presupuesto o la oferta. Si Odoo falla, el cliente recibe un aviso.",
+          "width": 600,
+          "height": 860,
+          "color": 6
+        },
+        "id": "50aa407c-e035-55e2-a9a4-135159f2689e",
+        "name": "Nota respuesta",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          1400,
+          80
+        ]
+      },
+      {
+        "parameters": {
+          "updates": [
+            "message"
+          ],
+          "additionalFields": {}
+        },
+        "id": "1c630f30-9e3f-51c1-8697-91383f7f4f46",
+        "name": "Telegram",
+        "type": "n8n-nodes-base.telegramTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          0,
+          300
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "6b8f23c8d9884a5f",
+            "name": "Telegram Cuatro Ríos"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const m = $input.first().json.message || {};\nconst shortcuts = {\n  '🛒 Nuevo pedido': 'Quiero hacer un pedido nuevo',\n  '🔁 Lo de siempre': 'Ponme lo de siempre',\n  '🔥 Oferta de la semana': '¿Cuál es la oferta de la semana?',\n};\nlet text = (m.text || '').trim();\nif (shortcuts[text]) text = shortcuts[text];\nif (text === '/start') text = 'Hola';\nconst kind = m.contact ? 'contact' : m.voice || m.audio ? 'voice' : m.photo || m.document ? 'photo' : 'text';\nconst digits = text.replace(/\\D/g, '');\nreturn [{ json: {\n  channel: 'telegram',\n  chat_id: String(m.chat?.id ?? ''),\n  sender_name: [m.from?.first_name, m.from?.last_name].filter(Boolean).join(' '),\n  text: kind === 'photo' ? (m.caption || '') : text,\n  phone: m.contact?.phone_number ?? null,\n  voice_file_id: (m.voice || m.audio)?.file_id ?? null,\n  kind,\n  typed_phone: kind === 'text' && digits.length >= 9 && digits.length === text.replace(/[\\s+()-]/g, '').length,\n}}];"
+        },
+        "id": "a88d7612-c5b3-5ee3-828f-ad56d7a0b3b0",
+        "name": "Preparar mensaje",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          240,
+          300
+        ]
+      },
+      {
+        "parameters": {
+          "resource": "message",
+          "operation": "sendChatAction",
+          "chatId": "={{ $json.chat_id }}",
+          "action": "typing"
+        },
+        "id": "503a6daf-030d-5a68-bafc-13bb74997aab",
+        "name": "Escribiendo…",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          540,
+          160
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "6b8f23c8d9884a5f",
+            "name": "Telegram Cuatro Ríos"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "loose",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "150bff4d-c39e-4990-bc57-33e46c91f93d",
+                      "leftValue": "={{ $json.kind }}",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "rightValue": "voice"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Nota de voz"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "loose",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "cce8cb0c-b86a-4bd3-93d6-1f5027d5ee24",
+                      "leftValue": "={{ $json.kind }}",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "rightValue": "photo"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Foto o documento"
+              }
+            ]
+          },
+          "options": {
+            "fallbackOutput": "extra",
+            "renameFallbackOutput": "Texto"
+          }
+        },
+        "id": "66175ad5-1000-5b09-9c73-c0146c496a83",
+        "name": "Tipo de mensaje",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          560,
+          420
+        ]
+      },
+      {
+        "parameters": {
+          "resource": "file",
+          "operation": "get",
+          "fileId": "={{ $json.voice_file_id }}",
+          "download": true
+        },
+        "id": "ece3dfdf-3800-53c1-9e9c-977aa6a5c3ec",
+        "name": "Descargar audio",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          560,
+          700
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "6b8f23c8d9884a5f",
+            "name": "Telegram Cuatro Ríos"
+          }
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "http://host.docker.internal:8765/transcribe",
+          "sendBody": true,
+          "contentType": "binaryData",
+          "inputDataFieldName": "data",
+          "options": {
+            "timeout": 60000
+          }
+        },
+        "id": "764608b7-8ce7-57c8-bb03-b692ad7beb0f",
+        "name": "Transcribir (Whisper local)",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          720,
+          700
+        ],
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const prep = $('Preparar mensaje').item.json;\nconst heard = ($input.first().json.text || '').trim();\nreturn [{ json: { ...prep, text: heard ? '(nota de voz transcrita) ' + heard : '', heard } }];"
+        },
+        "id": "c5754f42-a993-587a-bb3a-73d5cf7f80fb",
+        "name": "Texto transcrito",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          900,
+          640
+        ]
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $('Preparar mensaje').item.json.chat_id }}",
+          "text": "🎙️ No he podido entender bien la nota de voz. ¿Me escribes el pedido? Por ejemplo: <i>10 kg de parrillero y 40 burger de 100</i>.",
+          "additionalFields": {
+            "appendAttribution": false,
+            "parse_mode": "HTML"
+          }
+        },
+        "id": "1e9238e2-804d-5409-ac70-7f3197487805",
+        "name": "Pedir texto (voz)",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1460,
+          760
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "6b8f23c8d9884a5f",
+            "name": "Telegram Cuatro Ríos"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $('Preparar mensaje').item.json.chat_id }}",
+          "text": "📷 Todavía no leo fotos ni documentos de pedidos. ¿Me lo escribes? Por ejemplo: <i>10 kg de parrillero y 40 burger de 100</i>.",
+          "additionalFields": {
+            "appendAttribution": false,
+            "parse_mode": "HTML"
+          }
+        },
+        "id": "2ff4566f-f41e-5a16-afda-892842fddd8c",
+        "name": "Pedir texto (foto)",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1460,
+          900
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "6b8f23c8d9884a5f",
+            "name": "Telegram Cuatro Ríos"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://processcontrol-dsc-demo-cuatro-rios.odoo.com/pc_ai_order_intake/messaging",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify($json) }}",
+          "options": {
+            "timeout": 120000
+          }
+        },
+        "id": "df23e08f-4a37-59f4-98a8-0b558faac7e9",
+        "name": "Odoo: atender mensaje",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          900,
+          440
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "18c28beee2514b0b",
+            "name": "Odoo pedidos Cuatro Ríos"
+          }
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "5c737386-28d2-471e-b804-386ad8ad588d",
+                "leftValue": "={{ $json.need_contact }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                },
+                "rightValue": ""
+              }
+            ],
+            "combinator": "and"
+          },
+          "looseTypeValidation": true,
+          "options": {}
+        },
+        "id": "1f23a5f8-59d7-5aa9-9306-dddce5ddcf35",
+        "name": "¿Falta identificarse?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1140,
+          300
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "5491cb9b-b493-426b-875d-e3b479f8228e",
+                "leftValue": "={{ $('Preparar mensaje').item.json.typed_phone }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                },
+                "rightValue": ""
+              }
+            ],
+            "combinator": "and"
+          },
+          "looseTypeValidation": true,
+          "options": {}
+        },
+        "id": "af53c3a2-daaa-5f4c-b3f2-e143c5c9817e",
+        "name": "¿Ha escrito el número?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1460,
+          200
+        ]
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $('Preparar mensaje').item.json.chat_id }}",
+          "text": "🔒 Por seguridad no puedo usar un número escrito: toca el botón <b>Compartir mi teléfono</b> y Telegram me confirmará que el número es tuyo.",
+          "additionalFields": {
+            "appendAttribution": false,
+            "parse_mode": "HTML"
+          },
+          "replyMarkup": "replyKeyboard",
+          "replyKeyboard": {
+            "rows": [
+              {
+                "row": {
+                  "buttons": [
+                    {
+                      "text": "📱 Compartir mi teléfono",
+                      "additionalFields": {
+                        "request_contact": true
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "replyKeyboardOptions": {
+            "resize_keyboard": true,
+            "one_time_keyboard": true
+          }
+        },
+        "id": "ec3e67c6-86d8-5688-b70a-95a1b656fd69",
+        "name": "Explicar el botón",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1740,
+          120
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "6b8f23c8d9884a5f",
+            "name": "Telegram Cuatro Ríos"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $('Preparar mensaje').item.json.chat_id }}",
+          "text": "={{ $json.phone_unknown ? 'Ese número no está registrado como cliente de Cuatro Ríos. El equipo de pedidos te contactará en breve.' : '👋 Hola, soy el asistente de pedidos de <b>Cuatro Ríos</b>.\\nPara preparar tu pedido necesito saber quién eres: toca el botón <b>Compartir mi teléfono</b> que tienes debajo.' }}",
+          "additionalFields": {
+            "appendAttribution": false,
+            "parse_mode": "HTML"
+          },
+          "replyMarkup": "replyKeyboard",
+          "replyKeyboard": {
+            "rows": [
+              {
+                "row": {
+                  "buttons": [
+                    {
+                      "text": "📱 Compartir mi teléfono",
+                      "additionalFields": {
+                        "request_contact": true
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "replyKeyboardOptions": {
+            "resize_keyboard": true,
+            "one_time_keyboard": true
+          }
+        },
+        "id": "45ab2894-e66f-5d24-9cc0-7280594646e5",
+        "name": "Pedir teléfono",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1740,
+          280
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "6b8f23c8d9884a5f",
+            "name": "Telegram Cuatro Ríos"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "430cc086-c2f0-4de2-8260-7190e78b8664",
+                "leftValue": "={{ ($json.quotations || []).length }}",
+                "operator": {
+                  "type": "number",
+                  "operation": "gt"
+                },
+                "rightValue": 0
+              }
+            ],
+            "combinator": "and"
+          },
+          "looseTypeValidation": true,
+          "options": {}
+        },
+        "id": "f7758b2b-9e34-5b9e-8fa2-87f58a909290",
+        "name": "¿Hay presupuesto?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1460,
+          460
+        ]
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $('Preparar mensaje').item.json.chat_id }}",
+          "text": "={{ (($('Preparar mensaje').item.json.kind === 'voice' && $('Texto transcrito').item.json.heard ? '🎙️ He entendido: «' + $('Texto transcrito').item.json.heard + '»\\n\\n' : '') + ($json.reply || 'Perdona, ahora mismo no puedo atenderte. El equipo de pedidos te escribirá enseguida.')).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+          "additionalFields": {
+            "appendAttribution": false,
+            "parse_mode": "HTML"
+          },
+          "replyMarkup": "inlineKeyboard",
+          "inlineKeyboard": {
+            "rows": [
+              {
+                "row": {
+                  "buttons": [
+                    {
+                      "text": "=📄 Ver presupuesto {{ $json.quotations[0].name }}",
+                      "additionalFields": {
+                        "url": "={{ $json.quotations[0].url }}"
+                      }
+                    },
+                    {
+                      "text": "🔥 Ver oferta",
+                      "additionalFields": {
+                        "url": "={{ $json.offers_url }}"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "id": "690f0218-9c36-5215-ad68-04d965b08133",
+        "name": "Responder con presupuesto",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1740,
+          420
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "6b8f23c8d9884a5f",
+            "name": "Telegram Cuatro Ríos"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $('Preparar mensaje').item.json.chat_id }}",
+          "text": "={{ (($('Preparar mensaje').item.json.kind === 'voice' && $('Texto transcrito').item.json.heard ? '🎙️ He entendido: «' + $('Texto transcrito').item.json.heard + '»\\n\\n' : '') + ($json.reply || 'Perdona, ahora mismo no puedo atenderte. El equipo de pedidos te escribirá enseguida.')).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+          "additionalFields": {
+            "appendAttribution": false,
+            "parse_mode": "HTML"
+          },
+          "replyMarkup": "replyKeyboard",
+          "replyKeyboard": {
+            "rows": [
+              {
+                "row": {
+                  "buttons": [
+                    {
+                      "text": "🛒 Nuevo pedido"
+                    },
+                    {
+                      "text": "🔁 Lo de siempre"
+                    }
+                  ]
+                }
+              },
+              {
+                "row": {
+                  "buttons": [
+                    {
+                      "text": "🔥 Oferta de la semana"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "replyKeyboardOptions": {
+            "resize_keyboard": true
+          }
+        },
+        "id": "30b5b056-c961-53fc-8bdb-851de2387f4a",
+        "name": "Responder con atajos",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1740,
+          580
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "6b8f23c8d9884a5f",
+            "name": "Telegram Cuatro Ríos"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $('Preparar mensaje').item.json.chat_id }}",
+          "text": "😕 Perdona, ahora mismo no puedo procesar tu pedido. El equipo de pedidos de Cuatro Ríos te escribirá enseguida.",
+          "additionalFields": {
+            "appendAttribution": false,
+            "parse_mode": "HTML"
+          }
+        },
+        "id": "100f6247-d294-53bc-93b4-dee128e05989",
+        "name": "Avisar del error",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1460,
+          620
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "6b8f23c8d9884a5f",
+            "name": "Telegram Cuatro Ríos"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Telegram": {
+        "main": [
+          [
+            {
+              "node": "Preparar mensaje",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Preparar mensaje": {
+        "main": [
+          [
+            {
+              "node": "Escribiendo…",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Tipo de mensaje",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Tipo de mensaje": {
+        "main": [
+          [
+            {
+              "node": "Descargar audio",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Pedir texto (foto)",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Odoo: atender mensaje",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Descargar audio": {
+        "main": [
+          [
+            {
+              "node": "Transcribir (Whisper local)",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Pedir texto (voz)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Transcribir (Whisper local)": {
+        "main": [
+          [
+            {
+              "node": "Texto transcrito",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Pedir texto (voz)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Texto transcrito": {
+        "main": [
+          [
+            {
+              "node": "Odoo: atender mensaje",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Odoo: atender mensaje": {
+        "main": [
+          [
+            {
+              "node": "¿Falta identificarse?",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Avisar del error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "¿Falta identificarse?": {
+        "main": [
+          [
+            {
+              "node": "¿Ha escrito el número?",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "¿Hay presupuesto?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "¿Ha escrito el número?": {
+        "main": [
+          [
+            {
+              "node": "Explicar el botón",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Pedir teléfono",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "¿Hay presupuesto?": {
+        "main": [
+          [
+            {
+              "node": "Responder con presupuesto",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Responder con atajos",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "versionId": "5724216a-ee00-499f-9565-ae082eba16e2",
+    "active": false,
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "pinData": {}
+  }
+]

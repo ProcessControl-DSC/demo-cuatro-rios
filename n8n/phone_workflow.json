@@ -1,0 +1,590 @@
+[
+  {
+    "id": "cuatroriosTelefo",
+    "name": "Cuatro Ríos · pedidos por teléfono",
+    "nodes": [
+      {
+        "parameters": {
+          "content": "## 1 · Entra la llamada\nTwilio pregunta a n8n qué hacer. n8n saluda con voz (Lucía) y escucha el pedido; Twilio pasa la voz a texto.",
+          "width": 520,
+          "height": 300,
+          "color": 7
+        },
+        "id": "c2da21f5-ad56-583b-9292-4c10a6317c71",
+        "name": "Nota llamada",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -60,
+          60
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 2 · El cliente dice su pedido\nTwilio solo espera 5 segundos, así que n8n contesta al momento «un momento» y, ya sin prisa, pasa el texto a Odoo: identifica al cliente por el teléfono y el agente IA crea el presupuesto en borrador.",
+          "width": 1260,
+          "height": 340,
+          "color": 4
+        },
+        "id": "78500a27-8882-50ca-9dc7-22d1a47aa837",
+        "name": "Nota pedido",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -60,
+          400
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 3 · Respuesta hablada\nTwilio vuelve a preguntar cada pocos segundos. Cuando Odoo ha contestado, la lee en voz alta y deja añadir o cambiar algo una vez.",
+          "width": 1260,
+          "height": 640,
+          "color": 6
+        },
+        "id": "50aa407c-e035-55e2-a9a4-135159f2689e",
+        "name": "Nota respuesta",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -60,
+          780
+        ]
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "twilio-llamada",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "id": "0d07a9ed-553a-57d4-ba68-cb29051e37b6",
+        "name": "Llamada entrante",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          0,
+          200
+        ],
+        "webhookId": "c6a15cc6-160e-525e-bd74-8ae413069df7"
+      },
+      {
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Gather input=\"speech\" language=\"es-ES\" speechTimeout=\"3\" timeout=\"6\" hints=\"parrillero, chorizo parrillero, picadillo, hamburguesa, burger, costilla, costilla adobada, carne fiesta, pack barbacoa, oferta de la semana, lo de siempre, kilos, cajas, unidades, bandejas\" action=\"https://trodden-donator-untitled.ngrok-free.dev/webhook/twilio-pedido?t=1\" method=\"POST\"><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">Hola, has llamado a pedidos de Cuatro Ríos. Dime qué necesitas, por ejemplo: diez kilos de parrillero y dos cajas de picadillo.</Say></Gather><Gather input=\"speech\" language=\"es-ES\" speechTimeout=\"3\" timeout=\"6\" hints=\"parrillero, chorizo parrillero, picadillo, hamburguesa, burger, costilla, costilla adobada, carne fiesta, pack barbacoa, oferta de la semana, lo de siempre, kilos, cajas, unidades, bandejas\" action=\"https://trodden-donator-untitled.ngrok-free.dev/webhook/twilio-pedido?t=1\" method=\"POST\"><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">¿Sigues ahí? Dime tu pedido.</Say></Gather><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">No te he oído. Puedes volver a llamar cuando quieras. Hasta luego.</Say></Response>",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/xml; charset=utf-8"
+                }
+              ]
+            }
+          }
+        },
+        "id": "36039c9a-9681-5834-902b-6adfd00a9c63",
+        "name": "Saludar y escuchar",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          260,
+          200
+        ]
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "twilio-pedido",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "id": "14c742ae-c135-505c-9bf2-3e5a1f7e3a43",
+        "name": "Pedido dicho",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          0,
+          560
+        ],
+        "webhookId": "690713f7-e4a0-5fc2-a391-57d8da9b30da"
+      },
+      {
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">Perfecto, un momento, te preparo el pedido.</Say><Pause length=\"10\"/><Redirect method=\"POST\">https://trodden-donator-untitled.ngrok-free.dev/webhook/twilio-respuesta?t={{ $json.query.t || 1 }}&amp;n=0</Redirect></Response>",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/xml; charset=utf-8"
+                }
+              ]
+            }
+          }
+        },
+        "id": "148c38a3-5e76-540e-b2b0-e92174b7f35c",
+        "name": "Un momento",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          260,
+          560
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const b = $input.first().json.body || {};\nconst q = $input.first().json.query || {};\nreturn [{ json: {\n  channel: 'phone',\n  chat_id: b.CallSid,\n  sender_name: b.From,\n  text: (b.SpeechResult || '').trim(),\n  phone: b.From,\n  turn: Number(q.t || 1),\n}}];"
+        },
+        "id": "53bda15d-8545-540a-8a35-cefec04ca40d",
+        "name": "Preparar para Odoo",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          500,
+          560
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://processcontrol-dsc-demo-cuatro-rios.odoo.com/pc_ai_order_intake/messaging",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({channel: $json.channel, chat_id: $json.chat_id, sender_name: $json.sender_name, text: $json.text, phone: $json.phone}) }}",
+          "options": {
+            "timeout": 120000
+          }
+        },
+        "id": "a5a54de9-f055-5ed2-9758-daf938b0ace2",
+        "name": "Odoo: preparar pedido",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          740,
+          560
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "18c28beee2514b0b",
+            "name": "Odoo pedidos Cuatro Ríos"
+          }
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const data = $getWorkflowStaticData('global');\nconst calls = data.calls || {};\nconst now = Date.now();\nfor (const key of Object.keys(calls)) {\n  if (now - calls[key].at > 3600 * 1000) delete calls[key];\n}\nconst prep = $('Preparar para Odoo').first().json;\nconst r = $input.first().json;\ncalls[prep.chat_id + ':' + prep.turn] = {\n  at: now,\n  error: Boolean(r.error) || !(r.reply || r.need_contact),\n  unknown: Boolean(r.need_contact),\n  reply: r.reply || '',\n  quotations: (r.quotations || []).map(q => q.name),\n};\ndata.calls = calls;\nreturn [{ json: calls[prep.chat_id + ':' + prep.turn] }];"
+        },
+        "id": "f0dfee4f-4d01-5725-900e-45dfaac70991",
+        "name": "Guardar para la llamada",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          980,
+          560
+        ]
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "twilio-respuesta",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "id": "893492e3-36e0-5e45-ac76-18e361a0c2d6",
+        "name": "Twilio pregunta",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          0,
+          1000
+        ],
+        "webhookId": "33009f37-13b3-5693-9fe9-987f276ec6b6"
+      },
+      {
+        "parameters": {
+          "jsCode": "const b = $input.first().json.body || {};\nconst q = $input.first().json.query || {};\nconst turn = Number(q.t || 1);\nconst poll = Number(q.n || 0);\nconst r = ($getWorkflowStaticData('global').calls || {})[b.CallSid + ':' + turn];\nlet state = 'wait';\nif (r) state = r.error ? 'failed' : r.unknown ? 'unknown' : turn < 2 ? 'listen' : 'close';\nelse if (poll >= 6) state = 'failed';\n// spoken text: S00052 is read as «ese cincuenta y dos», no symbols of Markdown, XML escaped\nconst say = ((r && r.reply) || '')\n  .replace(/\\b([A-Z]{1,4})0+(\\d+)\\b/g, '$1 $2')\n  .replace(/[*_#`>]/g, '')\n  .replace(/\\s*\\n+\\s*/g, '. ')\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nreturn [{ json: { state, turn, poll, say } }];"
+        },
+        "id": "593ba662-8e02-5d1f-9ebf-1341356879fc",
+        "name": "Buscar respuesta",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          240,
+          1000
+        ]
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "loose",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "8a8c4fb2-228d-449d-894f-0084114e0b71",
+                      "leftValue": "={{ $json.state }}",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "rightValue": "wait"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Esperando a Odoo"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "loose",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "7289042c-2338-4730-9524-93074c6614f4",
+                      "leftValue": "={{ $json.state }}",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "rightValue": "listen"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Leer y seguir escuchando"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "loose",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "3b08eb7d-0922-4c05-a2e5-eadd3e3ed13b",
+                      "leftValue": "={{ $json.state }}",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "rightValue": "close"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Leer y despedirse"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "loose",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "79a9c81e-53f0-46ae-9c7e-396427de8e18",
+                      "leftValue": "={{ $json.state }}",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "rightValue": "unknown"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Número desconocido"
+              }
+            ]
+          },
+          "options": {
+            "fallbackOutput": "extra",
+            "renameFallbackOutput": "Error o demora"
+          }
+        },
+        "id": "29a090e8-0771-5380-b2ec-3e63f82bc6d5",
+        "name": "¿Cómo va?",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          480,
+          1000
+        ]
+      },
+      {
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Pause length=\"5\"/><Redirect method=\"POST\">https://trodden-donator-untitled.ngrok-free.dev/webhook/twilio-respuesta?t={{ $json.turn }}&amp;n={{ $json.poll + 1 }}</Redirect></Response>",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/xml; charset=utf-8"
+                }
+              ]
+            }
+          }
+        },
+        "id": "c0bf158a-3d3b-50f4-ba68-fdc840c091b9",
+        "name": "Esperar 5 s",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          860,
+          840
+        ]
+      },
+      {
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">{{ $json.say }}</Say><Gather input=\"speech\" language=\"es-ES\" speechTimeout=\"3\" timeout=\"6\" hints=\"parrillero, chorizo parrillero, picadillo, hamburguesa, burger, costilla, costilla adobada, carne fiesta, pack barbacoa, oferta de la semana, lo de siempre, kilos, cajas, unidades, bandejas\" action=\"https://trodden-donator-untitled.ngrok-free.dev/webhook/twilio-pedido?t={{ $json.turn + 1 }}\" method=\"POST\"><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">Si quieres añadir o cambiar algo, dímelo ahora. Si no, puedes colgar.</Say></Gather><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">Gracias por llamar a Cuatro Ríos. Hasta luego.</Say><Hangup/></Response>",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/xml; charset=utf-8"
+                }
+              ]
+            }
+          }
+        },
+        "id": "eb74f718-1a72-56dc-bc46-c846279c91e5",
+        "name": "Leer y escuchar más",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          860,
+          980
+        ]
+      },
+      {
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">{{ $json.say }}</Say><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">Si necesitas algo más, vuelve a llamarnos. Gracias por llamar a Cuatro Ríos.</Say><Hangup/></Response>",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/xml; charset=utf-8"
+                }
+              ]
+            }
+          }
+        },
+        "id": "dc9431b3-00fb-5a81-a160-efd7d712510b",
+        "name": "Leer y despedirse",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          860,
+          1120
+        ]
+      },
+      {
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">No reconozco este número como cliente de Cuatro Ríos. He pasado tu llamada al equipo de pedidos y te llamarán enseguida. Gracias.</Say><Hangup/></Response>",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/xml; charset=utf-8"
+                }
+              ]
+            }
+          }
+        },
+        "id": "17cdd9dc-c0f0-5b16-9dd7-1924cb17f52c",
+        "name": "No es cliente",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          860,
+          1260
+        ]
+      },
+      {
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Say voice=\"Polly.Lucia-Neural\" language=\"es-ES\">Perdona, ahora mismo no puedo preparar tu pedido. Lo he anotado y el equipo de pedidos te llamará enseguida. Gracias por llamar a Cuatro Ríos.</Say><Hangup/></Response>",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/xml; charset=utf-8"
+                }
+              ]
+            }
+          }
+        },
+        "id": "fc783b77-b591-503e-a61c-1d67a2270b98",
+        "name": "Avisar y colgar",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          860,
+          1380
+        ]
+      }
+    ],
+    "connections": {
+      "Llamada entrante": {
+        "main": [
+          [
+            {
+              "node": "Saludar y escuchar",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Pedido dicho": {
+        "main": [
+          [
+            {
+              "node": "Un momento",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Un momento": {
+        "main": [
+          [
+            {
+              "node": "Preparar para Odoo",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Preparar para Odoo": {
+        "main": [
+          [
+            {
+              "node": "Odoo: preparar pedido",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Odoo: preparar pedido": {
+        "main": [
+          [
+            {
+              "node": "Guardar para la llamada",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Guardar para la llamada",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Twilio pregunta": {
+        "main": [
+          [
+            {
+              "node": "Buscar respuesta",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Buscar respuesta": {
+        "main": [
+          [
+            {
+              "node": "¿Cómo va?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "¿Cómo va?": {
+        "main": [
+          [
+            {
+              "node": "Esperar 5 s",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Leer y escuchar más",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Leer y despedirse",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "No es cliente",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Avisar y colgar",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "versionId": "fa3c6568-6991-4f3c-b499-7114584be033",
+    "active": false,
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "pinData": {}
+  }
+]
