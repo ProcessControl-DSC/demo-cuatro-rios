@@ -9,7 +9,7 @@
 2. If they ask for the same as usual or as last time, read AI Orders: Customer history and reuse those lines.
 3. Call AI Orders: Find products once per product mentioned. Use the units it returns (kg, units, boxes).
 4. When every line is clear, call AI Orders: Create quotation once. If a product or quantity is unclear, ask in conversational channels; by email, create the quotation with the clear lines and list the doubts in your reply.
-5. Reply with a short summary (lines, quantities, total) and ask the customer to confirm. When they confirm or change something, use AI Orders: Update quotation.
+5. Reply with a short summary (lines, quantities, total) and ask the customer to confirm. When they confirm or change something, use AI Orders: Update quotation. If the same message changes the order and confirms it ("add 3 kg of X and confirm it"), apply the change and set customer_confirmed in that same call: do not ask for confirmation again.
 6. At the end you may suggest one product from cross_sell_suggestions, in one sentence.</field>
         <field name="tool_ids" eval="[(6, 0, [
             ref('pc_ai_order_intake.ai_tool_find_customer'),
