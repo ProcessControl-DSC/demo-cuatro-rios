@@ -73,8 +73,9 @@ class CrmLead(models.Model):
             'Quotations already created in this conversation: %(quotations)s\n\n'
             'Recent conversation, oldest first:\n%(conversation)s\n\n'
             'Answer the customer\'s last message, always briefly. Your answer is sent as it is in the chat: '
-            'plain text, no Markdown, links as plain URLs. The chat shows buttons for a new order, the '
-            'usual order and the weekly offer, so do not list those options yourself.'
+            'plain text, no Markdown and no links: the chat adds buttons to view the quotation and the '
+            'weekly offer, and shortcuts for a new order, the usual order and the offer, so do not list '
+            'those options yourself. When you create a quotation, pass channel=%(channel)s.'
         ) % {
             'channel': channel, 'customer': customer.name, 'customer_id': customer.id,
             'lead_id': lead.id, 'conversation': conversation or '-',
@@ -94,5 +95,6 @@ class CrmLead(models.Model):
         return {
             'reply': reply,
             'customer': customer.name,
+            'offers_url': self.env['ir.config_parameter'].sudo().get_param('pc_ai_order_intake.offers_url') or '',
             'quotations': [{'name': q.name, 'url': q.get_base_url() + q.get_portal_url()} for q in quotations],
         }
