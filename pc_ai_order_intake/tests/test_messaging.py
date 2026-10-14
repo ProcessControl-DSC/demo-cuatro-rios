@@ -52,7 +52,9 @@ class TestMessaging(BaseCommon):
         prompt = agent_call.call_args.args[1]
         self.assertIn('read aloud', prompt)
         lead = self.Lead.search([('messaging_ref', '=', 'phone:34600999111')])
-        self.assertIn(self.env.ref('pc_ai_order_intake.crm_tag_channel_phone'), lead.tag_ids)
+        phone_tag = self.env.ref('pc_ai_order_intake.crm_tag_channel_phone')
+        self.assertIn(phone_tag, lead.tag_ids)
+        self.assertTrue(lead.name.startswith(phone_tag.name + ' · '))
 
 
 @tagged('post_install', '-at_install')

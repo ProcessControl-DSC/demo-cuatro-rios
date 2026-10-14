@@ -35,10 +35,14 @@ class CrmLead(models.Model):
         lead = self.search([('messaging_ref', '=', ref)], limit=1)
         if not lead:
             tags = self.env.ref('pc_ai_order_intake.crm_tag_ai_order')
-            tags |= self.env.ref('pc_ai_order_intake.crm_tag_channel_%s' % channel,
-                                 raise_if_not_found=False) or tags.browse()
+            channel_tag = self.env.ref('pc_ai_order_intake.crm_tag_channel_%s' % channel,
+                                       raise_if_not_found=False) or tags.browse()
+            tags |= channel_tag
+            # the channel tag carries the label in the company language (Pedido IA: teléfono)
+            lang = (team.company_id or self.env.company).partner_id.lang
+            label = channel_tag.with_context(lang=lang).name or channel.capitalize()
             lead = self.create({
-                'name': '%s · %s' % (channel.capitalize(), sender_name or chat_id),
+                'name': '%s · %s' % (label, sender_name or chat_id),
                 'team_id': team.id,
                 'messaging_ref': ref,
                 'tag_ids': [(6, 0, tags.ids)],
@@ -69,9 +73,9 @@ class CrmLead(models.Model):
         if channel == 'phone':
             style = (
                 'Your answer is read aloud to the customer on the phone by a voice: two or three short '
-                'sentences, no lists, no links, no emojis, no symbols. Give the quotation number and the '
-                'total, and ask only about what you could not match. When you create a quotation, pass '
-                'channel=phone.')
+                'sentences, no lists, no links, no emojis, no symbols. Give the quotation number exactly as '
+                'written (S00088), never spelled out, and the total, and ask only about what you could not '
+                'match. When you create a quotation, pass channel=phone.')
         else:
             style = (
                 'Your answer is sent as it is in the chat: plain text, no Markdown and no links: the chat '
