@@ -1,7 +1,7 @@
 # Part of Process Control. License LGPL-3.
 {
     'name': 'AI order intake (email, WhatsApp and website chat)',
-    'version': '19.0.1.1.2',
+    'version': '19.0.1.2.0',
     'summary': 'An Odoo AI agent turns customer orders received by email, WhatsApp '
                'or the website chat into draft quotations',
     'category': 'Sales/Sales',
@@ -11,6 +11,7 @@
     'depends': ['ai_app', 'ai_livechat', 'sale_crm', 'whatsapp', 'website_livechat'],
     'data': [
         'data/crm_data.xml',
+        'data/product_data.xml',
         'data/ai_tools.xml',
         'data/ai_agent_data.xml',
         'data/ir_cron_data.xml',

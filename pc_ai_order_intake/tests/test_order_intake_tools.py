@@ -232,6 +232,17 @@ class TestOrderIntakeTools(BaseCommon):
         self.assertEqual(len(comments), 1)
         self.assertFalse(comments.partner_ids, "Internal note only, nothing to the customer")
 
+    def test_weekly_offers(self):
+        """Products tagged as weekly offer are returned with the offers page,
+        to anyone (the website visitor needs no identification for this)."""
+        tag = self.env.ref('pc_ai_order_intake.product_tag_weekly_offer')
+        self.burger.product_tmpl_id.product_tag_ids = [(4, tag.id)]
+        self.env['ir.config_parameter'].sudo().set_param(
+            'pc_ai_order_intake.offers_url', 'https://example.com/offers')
+        result = self._run_tool_as_public('pc_ai_order_intake.ai_tool_weekly_offers')
+        self.assertEqual([o['product_id'] for o in result['offers']], [self.burger.id])
+        self.assertEqual(result['offers_url'], 'https://example.com/offers')
+
     def test_customer_history_last_order_and_suggestions(self):
         order = self.env['sale.order'].create({
             'partner_id': self.customer.id,

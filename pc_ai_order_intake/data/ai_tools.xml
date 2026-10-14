@@ -375,4 +375,34 @@ else:
     }
 ]]></field>
     </record>
+
+    <record id="ai_tool_weekly_offers" model="ir.actions.server">
+        <field name="name">AI Orders: Weekly offers</field>
+        <field name="model_id" ref="ai.model_ai_agent"/>
+        <field name="state">code</field>
+        <field name="use_in_ai" eval="True"/>
+        <field name="ai_tool_allow_end_message" eval="False"/>
+        <field name="ai_tool_description">Returns the current offers (products tagged as weekly offer) with their price and content, and the link to the offers page. Needs no customer identification. Use it when the customer greets you, asks what is on offer, or when you close an order and may suggest one.</field>
+        <field name="ai_tool_schema">{
+    "type": "object",
+    "properties": {},
+    "required": []
+}</field>
+        <field name="code"><![CDATA[
+tag = env.ref('pc_ai_order_intake.product_tag_weekly_offer')
+offers = env['product.product'].sudo().search(
+    [('sale_ok', '=', True), ('product_tmpl_id.product_tag_ids', 'in', tag.ids)], limit=5)
+ai['result'] = {
+    'offers': [{
+        'product_id': p.id,
+        'name': p.name,
+        'price': p.lst_price,
+        'unit': p.uom_id.name,
+        'details': str(p.product_tmpl_id.description_sale or ''),
+    } for p in offers],
+    'offers_url': env['ir.config_parameter'].sudo().get_param('pc_ai_order_intake.offers_url') or '',
+    'note': '' if offers else 'There is no offer this week.',
+}
+]]></field>
+    </record>
 </odoo>

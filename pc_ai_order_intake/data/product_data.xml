@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Part of Process Control. License LGPL-3. -->
+<odoo>
+    <!-- Products with this tag are the offers the agent presents to customers. -->
+    <record id="product_tag_weekly_offer" model="product.tag">
+        <field name="name">Weekly offer</field>
+        <field name="color">#C8102E</field>
+    </record>
+</odoo>
