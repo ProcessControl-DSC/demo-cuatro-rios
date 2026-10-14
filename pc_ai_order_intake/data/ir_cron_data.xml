@@ -22,8 +22,11 @@ for lead in leads:
     lead.write({'tag_ids': [(4, done.id)]})
     if not lead.partner_id and lead.email_from:
         lead.write({'partner_id': env['res.partner'].find_or_create(lead.email_from).id})
+    # the mail gateway keeps the email as a message of the lead, not in its description
+    email = env['mail.message'].search([('model', '=', 'crm.lead'), ('res_id', '=', lead.id),
+                                        ('message_type', '=', 'email')], order='id', limit=1)
     attachments = []
-    for att in env['ir.attachment'].search([('res_model', '=', 'crm.lead'), ('res_id', '=', lead.id)]):
+    for att in email.attachment_ids | env['ir.attachment'].search([('res_model', '=', 'crm.lead'), ('res_id', '=', lead.id)]):
         if att.index_content:
             attachments.append('%s:\n%s' % (att.name, att.index_content[:6000]))
     prompt = (
@@ -34,7 +37,7 @@ for lead in leads:
     ) % (
         lead.email_from or '',
         lead.partner_id and '%s (partner_id %s)' % (lead.partner_id.commercial_partner_id.name, lead.partner_id.id) or 'none',
-        lead.id, lead.name or '', lead.description or '', '\n\n'.join(attachments) or 'none',
+        lead.id, lead.name or '', email.body or lead.description or '', '\n\n'.join(attachments) or 'none',
     )
     try:
         reply = '\n'.join(agent.with_context(
