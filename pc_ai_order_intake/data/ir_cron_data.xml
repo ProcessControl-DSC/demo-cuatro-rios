@@ -76,8 +76,16 @@ for lead in leads.sorted('id')[:5]:
         continue
     spanish = (lead.partner_id.lang or env.user.lang or '').startswith('es')
     if reply.strip().strip('.') == 'NO_REPLY':
-        # every email gets an answer: a clear order gets a short confirmation
-        registered = ', '.join(env['sale.order'].search([('opportunity_id', '=', lead.id)]).mapped('name')) or '-'
+        # every email gets an answer: a clear order gets a short confirmation;
+        # without a quotation there is nothing to confirm, the team takes over
+        registered = ', '.join(env['sale.order'].search([('opportunity_id', '=', lead.id)]).mapped('name'))
+        if not registered:
+            lead.message_post(
+                body=('La IA no ha registrado ningún presupuesto: el equipo debe revisar este correo.' if spanish
+                      else 'The AI registered no quotation: the team must review this email.'),
+                author_id=(lead.company_id or env.company).partner_id.id,
+                message_type='comment', subtype_xmlid='mail.mt_note')
+            continue
         reply = (('Hemos recibido tu pedido y lo hemos registrado en %s. Nuestro equipo lo prepara enseguida.'
                   if spanish else 'We have received your order and registered it in %s. Our team will prepare it shortly.')
                  % registered)

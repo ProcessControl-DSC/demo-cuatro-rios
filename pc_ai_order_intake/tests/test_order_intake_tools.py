@@ -240,6 +240,23 @@ class TestOrderIntakeTools(BaseCommon):
         self.assertIn(created['quotation'], replies.body)
         self.assertNotIn('NO_REPLY', replies.body)
 
+    def test_no_quotation_no_confirmation(self):
+        """Without a quotation a NO_REPLY answer is not turned into a
+        confirmation: the customer gets nothing and the team gets a note."""
+        team = self.env.ref('pc_ai_order_intake.crm_team_orders')
+        lead = self.env['crm.lead'].create({
+            'name': 'Pedido', 'team_id': team.id, 'partner_id': self.customer.id,
+            'email_from': self.customer.email,
+        })
+        lead.message_post(body='Hola', message_type='email', author_id=self.customer.id)
+        agent_class = type(self.env['ai.agent'])
+        with patch.object(agent_class, 'get_direct_response', return_value=['NO_REPLY']):
+            self.env.ref('pc_ai_order_intake.ir_cron_order_intake_email').ir_actions_server_id.run()
+        comments = self.env['mail.message'].search([
+            ('model', '=', 'crm.lead'), ('res_id', '=', lead.id), ('message_type', '=', 'comment')])
+        self.assertEqual(len(comments), 1)
+        self.assertFalse(comments.partner_ids, "Internal note only, nothing to the customer")
+
     def test_weekly_offers(self):
         """Products tagged as weekly offer are returned with the offers page,
         to anyone (the website visitor needs no identification for this)."""
