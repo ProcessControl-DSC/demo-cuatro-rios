@@ -211,26 +211,34 @@ class TestOrderIntakeTools(BaseCommon):
             self.env.ref('pc_ai_order_intake.ir_cron_order_intake_email').ir_actions_server_id.run()
         self.assertEqual(len(replies()), 1)
 
-    def test_clear_email_order_gets_no_answer(self):
-        """When every product is matched the customer gets no message: the
-        team validates the quotation. A note marks the email as handled, so
-        the next run does not process it again."""
+    def test_clear_email_order_gets_a_confirmation(self):
+        """Every email gets an answer, also a clear order: a short confirmation
+        with the quotation. The agent is told never to ask the customer to
+        confirm, and an old-style NO_REPLY still turns into a confirmation.
+        The next run does not answer the same email again."""
         team = self.env.ref('pc_ai_order_intake.crm_team_orders')
         lead = self.env['crm.lead'].create({
             'name': 'Pedido', 'team_id': team.id, 'partner_id': self.customer.id,
             'email_from': self.customer.email,
         })
         lead.message_post(body='10 kg de parrillero', message_type='email', author_id=self.customer.id)
+        created = self._run_tool(
+            'pc_ai_order_intake.ai_tool_create_quotation',
+            partner_id=self.customer.id, product_ids=[self.chorizo.id], quantities=[2],
+            uoms=['Box 5 kg test'], channel='email', lead_id=lead.id)
         cron_action = self.env.ref('pc_ai_order_intake.ir_cron_order_intake_email').ir_actions_server_id
         agent_class = type(self.env['ai.agent'])
         with patch.object(agent_class, 'get_direct_response', return_value=['NO_REPLY']) as agent_call:
             cron_action.run()
             cron_action.run()
         self.assertEqual(agent_call.call_count, 1)
-        comments = self.env['mail.message'].search([
-            ('model', '=', 'crm.lead'), ('res_id', '=', lead.id), ('message_type', '=', 'comment')])
-        self.assertEqual(len(comments), 1)
-        self.assertFalse(comments.partner_ids, "Internal note only, nothing to the customer")
+        self.assertIn('Never ask the customer to confirm', agent_call.call_args.args[0])
+        replies = self.env['mail.message'].search([
+            ('model', '=', 'crm.lead'), ('res_id', '=', lead.id),
+            ('message_type', '=', 'comment'), ('partner_ids', '!=', False)])
+        self.assertEqual(len(replies), 1, "The customer gets one confirmation")
+        self.assertIn(created['quotation'], replies.body)
+        self.assertNotIn('NO_REPLY', replies.body)
 
     def test_weekly_offers(self):
         """Products tagged as weekly offer are returned with the offers page,

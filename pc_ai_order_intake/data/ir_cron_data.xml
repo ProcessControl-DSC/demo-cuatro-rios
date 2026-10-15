@@ -53,9 +53,10 @@ for lead in leads.sorted('id')[:5]:
         'text the email adds the detail of each draft quotation (lines and totals) and a link to view '
         'it online, so do not list the lines again: give the quotation number and ask only about what '
         'could not be matched. '
-        'If every product and quantity was matched and the quotation is created or updated, answer exactly '
-        'NO_REPLY and nothing else: the customer gets no message. Write to the customer only when '
-        'something could not be matched or the customer is unknown, and ask only about that.'
+        'Always answer the customer. If every product and quantity was matched, confirm in one or two '
+        'sentences that the order is registered in the quotation and that the team will prepare it. '
+        'Never ask the customer to confirm the order: the team validates every quotation. If something '
+        'could not be matched or the customer is unknown, ask only about that.'
     ) % (
         lead.email_from or '',
         lead.partner_id and '%s (partner_id %s)' % (lead.partner_id.commercial_partner_id.name, lead.partner_id.id) or 'none',
@@ -75,15 +76,11 @@ for lead in leads.sorted('id')[:5]:
         continue
     spanish = (lead.partner_id.lang or env.user.lang or '').startswith('es')
     if reply.strip().strip('.') == 'NO_REPLY':
-        # clear order: nothing to ask the customer, the team validates the quotation
-        registered = env['sale.order'].search([('opportunity_id', '=', lead.id)]).mapped('name')
-        lead.message_post(
-            body=('Pedido registrado por la IA en %s sin dudas: no se ha escrito al cliente.' if spanish
-                  else 'Order registered by the AI in %s with no doubts: the customer was not contacted.')
-            % (', '.join(registered) or '-'),
-            author_id=(lead.company_id or env.company).partner_id.id,
-            message_type='comment', subtype_xmlid='mail.mt_note')
-        continue
+        # every email gets an answer: a clear order gets a short confirmation
+        registered = ', '.join(env['sale.order'].search([('opportunity_id', '=', lead.id)]).mapped('name')) or '-'
+        reply = (('Hemos recibido tu pedido y lo hemos registrado en %s. Nuestro equipo lo prepara enseguida.'
+                  if spanish else 'We have received your order and registered it in %s. Our team will prepare it shortly.')
+                 % registered)
     labels = {
         'product': 'Producto' if spanish else 'Product',
         'quantity': 'Cantidad' if spanish else 'Quantity',
